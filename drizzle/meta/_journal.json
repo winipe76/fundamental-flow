@@ -15,6 +15,13 @@
       "when": 1785551203856,
       "tag": "0001_familiar_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785554400000,
+      "tag": "0002_investment_philosophy_v1_1",
+      "breakpoints": true
     }
   ]
 }
