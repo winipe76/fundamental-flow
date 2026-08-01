@@ -2,6 +2,81 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+type View = "Dashboard" | "Screener" | "Company Detail" | "Watchlist" | "Data Pilot";
+type PilotCompany = { ticker: string; company: string; sector: string; status: "Newly Selected" | "Continuing Improvement" | "Watch"; change: string; reason: string };
+
+const pilotCompanies: PilotCompany[] = [
+  { ticker: "PLTR", company: "Palantir Technologies", sector: "Technology · Software", status: "Newly Selected", change: "FWD EPS +5.1%", reason: "Sample · EPS 및 예상 매출 개선" },
+  { ticker: "NVDA", company: "NVIDIA Corporation", sector: "Technology · Semiconductors", status: "Continuing Improvement", change: "FWD EPS +15.2%", reason: "Sample · 컨센서스 상향 지속" },
+  { ticker: "MSFT", company: "Microsoft Corporation", sector: "Technology · Software", status: "Watch", change: "FWD EPS +3.8%", reason: "Sample · 변화 추적 준비 중" },
+];
+
+const viewIcons: Record<View, string> = { Dashboard: "⌂", Screener: "◎", "Company Detail": "▤", Watchlist: "☆", "Data Pilot": "↻" };
+
+export default function Home() {
+  const [view, setView] = useState<View>("Dashboard");
+  const [selectedTicker, setSelectedTicker] = useState("PLTR");
+  const [mobileNav, setMobileNav] = useState(false);
+  const openCompany = (ticker: string) => { setSelectedTicker(ticker); setView("Company Detail"); setMobileNav(false); };
+  return (
+    <main className="structure-shell">
+      <aside className={`main-nav ${mobileNav ? "open" : ""}`}>
+        <div className="nav-brand"><span>F</span><div><strong>Fundamental Flow</strong><small>Investment Philosophy v1.1</small></div></div>
+        <nav aria-label="주요 화면">
+          {(Object.keys(viewIcons) as View[]).map((item) => <button key={item} className={view === item ? "active" : ""} onClick={() => { setView(item); setMobileNav(false); }}><i>{viewIcons[item]}</i><span>{item}</span>{item === "Data Pilot" && <b>LIVE</b>}</button>)}
+        </nav>
+        <div className="nav-philosophy"><span>OUR PHILOSOPHY</span><p>우리는 주가를 추종하지 않는다.<br/><strong>기업의 변화를 추적한다.</strong></p></div>
+        <div className="pilot-indicator"><i/> Pilot Universe: 3 / Nasdaq 100</div>
+      </aside>
+      <section className="structure-workspace">
+        <header className="structure-header"><button className="menu-button" onClick={() => setMobileNav((value) => !value)} aria-label="메뉴 열기">☰</button><div><span>{view}</span><small>{view === "Data Pilot" ? "FMP 연결 데이터" : "Sample / 구조 준비 단계"}</small></div><button className="header-search" onClick={() => setView("Screener")}>⌕ <span>기업 검색</span></button></header>
+        {view === "Dashboard" && <Dashboard onOpen={openCompany}/>} 
+        {view === "Screener" && <Screener onOpen={openCompany}/>} 
+        {view === "Company Detail" && <CompanyDetail ticker={selectedTicker}/>} 
+        {view === "Watchlist" && <Watchlist onOpen={openCompany}/>} 
+        {view === "Data Pilot" && <DataPilot/>}
+      </section>
+      {mobileNav && <button className="nav-overlay" aria-label="메뉴 닫기" onClick={() => setMobileNav(false)}/>}
+    </main>
+  );
+}
+
+function Dashboard({ onOpen }: { onOpen: (ticker: string) => void }) {
+  const cards = [{ label: "신규 선정", value: 1, tone: "blue" }, { label: "지속 개선", value: 1, tone: "green" }, { label: "관찰", value: 1, tone: "amber" }, { label: "주의", value: 0, tone: "red" }, { label: "제외", value: 0, tone: "gray" }];
+  return <div className="structure-content"><section className="structure-hero"><div><span>NASDAQ 100 · FUNDAMENTAL CHANGE</span><h1>기업의 변화를 추적하는<br/>Investment Conviction Engine</h1><p>현재 단계에서는 기존 FMP 파일럿 3종목을 기반으로 전체 제품 구조를 미리 보여줍니다.</p></div><div className="universe-ring"><strong>3</strong><span>PILOT COMPANIES</span><small>of Nasdaq 100</small></div></section>
+    <div className="scope-banner"><div><i/> 실제 사용 가능</div><strong>Pilot Universe: 3 / Nasdaq 100</strong><span>PLTR · NVDA · MSFT</span></div>
+    <div className="status-card-grid">{cards.map((card) => <article className={`status-card ${card.tone}`} key={card.label}><span>{card.label}</span><strong>{card.value}</strong><small>{card.value ? "Sample classification" : "분류 결과 없음"}</small></article>)}</div>
+    <div className="dashboard-grid"><section className="structure-panel"><PanelHeader eyebrow="PILOT SIGNALS" title="기업 현황" badge="SAMPLE"/><div className="company-summary-list">{pilotCompanies.map((item) => <button key={item.ticker} onClick={() => onOpen(item.ticker)}><span className="ticker-avatar">{item.ticker.slice(0,2)}</span><div><strong>{item.ticker}</strong><small>{item.company}</small></div><StatusPill status={item.status}/><b>{item.change}</b><i>›</i></button>)}</div></section>
+      <section className="structure-panel roadmap-panel"><PanelHeader eyebrow="NEXT CONNECTIONS" title="분석 모듈" badge="준비 중"/><div>{["Raw Data", "Derived Metrics", "Monthly Trends", "Screening Engine", "AI Opinion"].map((item,index) => <section key={item}><span>0{index+1}</span><strong>{item}</strong><small>{index === 0 ? "Data Pilot에서 일부 사용 가능" : "다음 단계에서 연결 예정"}</small></section>)}</div></section></div>
+  </div>;
+}
+
+function Screener({ onOpen }: { onOpen: (ticker: string) => void }) {
+  const [query, setQuery] = useState(""); const [status, setStatus] = useState("All status");
+  const visible = pilotCompanies.filter((item) => (!query || `${item.ticker} ${item.company}`.toLowerCase().includes(query.toLowerCase())) && (status === "All status" || item.status === status));
+  return <div className="structure-content"><PageHeading eyebrow="SCREENING WORKSPACE" title="Screener" description="상태와 변화 중심으로 기업을 탐색합니다. 현재 분류와 사유는 화면 구조 검증용 Sample입니다." badge="SAMPLE LOGIC"/>
+    <div className="filter-bar"><label><span>⌕</span><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="티커 또는 회사명 검색"/></label><select value={status} onChange={(e)=>setStatus(e.target.value)}><option>All status</option><option>Newly Selected</option><option>Continuing Improvement</option><option>Watch</option></select><span>{visible.length} companies</span></div>
+    <section className="structure-panel screener-table"><table><thead><tr><th>상태</th><th>티커</th><th>회사명</th><th>섹터</th><th>주요 변화</th><th>선정·제외 이유</th><th/></tr></thead><tbody>{visible.map((item)=><tr key={item.ticker} onClick={()=>onOpen(item.ticker)}><td><StatusPill status={item.status}/></td><td><strong>{item.ticker}</strong></td><td>{item.company}</td><td>{item.sector}</td><td className="positive">{item.change}<small>Sample</small></td><td>{item.reason}</td><td>›</td></tr>)}</tbody></table></section>
+  </div>;
+}
+
+function CompanyDetail({ ticker }: { ticker: string }) {
+  const company = pilotCompanies.find((item)=>item.ticker===ticker) ?? pilotCompanies[0];
+  return <div className="structure-content"><section className="detail-heading"><div className="ticker-avatar large">{company.ticker.slice(0,2)}</div><div><span>{company.sector}</span><h1>{company.company}</h1><p>{company.ticker} · Nasdaq 100 Pilot</p></div><StatusPill status={company.status}/></section>
+    <div className="detail-section-grid"><section className="structure-panel wide"><PanelHeader eyebrow="COMPANY PROFILE" title="기업 기본 정보" badge="SAMPLE"/><div className="profile-grid"><span>티커<strong>{company.ticker}</strong></span><span>회사명<strong>{company.company}</strong></span><span>섹터<strong>{company.sector}</strong></span><span>데이터 범위<strong>Pilot Universe</strong></span></div></section>
+      <PlaceholderSection title="Raw Data" eyebrow="SOURCE VALUES" note="기존 FMP Pilot 데이터와 연결되는 영역입니다." ready/><PlaceholderSection title="Derived Metrics" eyebrow="CALCULATED VALUES" note="다음 단계에서 계산 로직 연결 예정"/><PlaceholderSection title="Monthly Trends" eyebrow="TIME SERIES" note="다음 단계에서 월별 비교 시각화 연결 예정"/><PlaceholderSection title="Screening Status" eyebrow="CLASSIFICATION" note="현재 상태는 Sample이며 다음 단계에서 규칙 연결 예정"/><PlaceholderSection title="AI Opinion" eyebrow="INVESTMENT CONVICTION" note="다음 단계에서 AI 분석 영역 연결 예정"/></div>
+    <section className="abbreviation-guide"><span>약어 안내</span><Abbreviation short="FWD EPS" full="Forward Earnings per Share" ko="예상 주당순이익"/><Abbreviation short="FCF" full="Free Cash Flow" ko="잉여현금흐름"/><Abbreviation short="CFO" full="Operating Cash Flow" ko="영업현금흐름"/></section>
+  </div>;
+}
+
+function Watchlist({ onOpen }: { onOpen: (ticker:string)=>void }) { return <div className="structure-content"><PageHeading eyebrow="PERSONAL MONITORING" title="Watchlist" description="관심기업을 모니터링할 화면입니다. 이번 단계에서는 저장되지 않는 Sample UI만 제공합니다." badge="SAMPLE UI"/><div className="watchlist-note"><i>!</i><div><strong>저장 기능은 아직 연결되지 않았습니다.</strong><span>다음 단계에서 단순 저장 방식으로 추가할 수 있도록 독립 화면으로 구성했습니다.</span></div></div><div className="watchlist-grid">{pilotCompanies.slice(0,2).map((item)=><button key={item.ticker} onClick={()=>onOpen(item.ticker)}><span className="ticker-avatar">{item.ticker.slice(0,2)}</span><div><strong>{item.ticker}</strong><p>{item.company}</p><StatusPill status={item.status}/></div><b>{item.change}</b><small>Sample watchlist</small></button>)}<article className="watchlist-add"><span>＋</span><strong>관심기업 추가</strong><small>다음 단계에서 연결 예정</small></article></div></div>; }
+
+function PageHeading({eyebrow,title,description,badge}:{eyebrow:string;title:string;description:string;badge:string}) { return <div className="page-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div><b>{badge}</b></div>; }
+function PanelHeader({eyebrow,title,badge}:{eyebrow:string;title:string;badge:string}) { return <header className="structure-panel-header"><div><span>{eyebrow}</span><h2>{title}</h2></div><b>{badge}</b></header>; }
+function StatusPill({status}:{status:PilotCompany["status"]}) { return <span className={`structure-status ${status.toLowerCase().replaceAll(" ","-")}`}>{status}</span>; }
+function PlaceholderSection({title,eyebrow,note,ready=false}:{title:string;eyebrow:string;note:string;ready?:boolean}) { return <section className="structure-panel placeholder-section"><PanelHeader eyebrow={eyebrow} title={title} badge={ready?"PILOT DATA":"준비 중"}/><div><span>{ready?"↗":"◇"}</span><strong>{note}</strong><small>{ready?"Data Pilot 화면에서 현재 값을 확인할 수 있습니다.":"빈 영역 대신 향후 연결 지점을 명확히 표시합니다."}</small></div></section>; }
+function Abbreviation({short,full,ko}:{short:string;full:string;ko:string}) { return <span className="abbreviation" title={`${full} · ${ko}`}><b>{short}</b><small>{full}<em>{ko}</em></small></span>; }
+
 type ApiStatus = "loading" | "connected" | "key_missing" | "database_error" | "database_unavailable" | "partial" | "error";
 type Snapshot = {
   ticker: string;
@@ -71,7 +146,7 @@ function missingList(value: unknown): string[] {
   } catch { return []; }
 }
 
-export default function Home() {
+function DataPilot() {
   const [status, setStatus] = useState<ApiStatus>("loading");
   const [snapshots, setSnapshots] = useState<Snapshot[]>(demoSnapshots);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -89,7 +164,7 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => { void loadStatus(); }, [loadStatus]);
+  useEffect(() => { queueMicrotask(() => { void loadStatus(); }); }, [loadStatus]);
 
   const refresh = async () => {
     setRefreshing(true);
