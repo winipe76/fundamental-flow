@@ -242,7 +242,7 @@ function DataPilot({pilot}:{pilot:PilotState}) {
 
         <div className="metric-grid compact-metrics">
           <article className="metric-card accent"><div className="metric-label">데이터 기준</div><div className="metric-value text-value">Annual + TTM</div><p>분기 추정치 혼합 없음</p></article>
-          <article className="metric-card"><div className="metric-label">EPS 정의</div><div className="metric-value text-value">Consensus Avg</div><p>FMP annual estimatedEpsAvg</p></article>
+          <article className="metric-card"><div className="metric-label">EPS 정의</div><div className="metric-value text-value">Consensus Avg</div><p>FMP annual epsAvg</p></article>
           <article className="metric-card"><div className="metric-label">원본 보존</div><div className="metric-value text-value positive">3 Endpoints</div><p>응답 JSON과 계산값 분리 저장</p></article>
           <article className="metric-card"><div className="metric-label">확장 준비</div><div className="metric-value text-value">NASDAQ 100</div><p>티커 목록만 교체 가능한 수집기</p></article>
         </div>
@@ -264,7 +264,7 @@ function DataPilot({pilot}:{pilot:PilotState}) {
             </table>
           </div>
           <footer className="table-footer definition-footer">
-            <p><i /> EPS: FMP 연간 애널리스트 컨센서스 평균 · Actuals: FMP 표준화 TTM 재무제표</p>
+            <p><i /> EPS: FMP 연간 애널리스트 컨센서스 평균 · Actuals: 최근 4개 보고 분기 합산 TTM</p>
             <span>GAAP/Adjusted 교차 혼합 금지</span>
           </footer>
         </section>

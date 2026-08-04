@@ -66,25 +66,33 @@ function rows(result: RawResult): JsonRow[] {
     : [];
 }
 
+function sumField(items: JsonRow[], field: string): number | null {
+  if (items.length < 4) return null;
+  const values = items.slice(0, 4).map((item) => numberOrNull(item[field]));
+  return values.every((value): value is number => value !== null)
+    ? values.reduce((sum, value) => sum + value, 0)
+    : null;
+}
+
 export async function collectTicker(ticker: string, apiKey: string, snapshotDate: string) {
-  const [estimates, incomeTtm, cashflowTtm] = await Promise.all([
+  const [estimates, quarterlyIncome, quarterlyCashflow] = await Promise.all([
     request(`analyst-estimates?symbol=${encodeURIComponent(ticker)}&period=annual&page=0&limit=10`, apiKey),
-    request(`income-statement-ttm?symbol=${encodeURIComponent(ticker)}`, apiKey),
-    request(`cash-flow-statement-ttm?symbol=${encodeURIComponent(ticker)}`, apiKey),
+    request(`income-statement?symbol=${encodeURIComponent(ticker)}&period=quarter&limit=4`, apiKey),
+    request(`cash-flow-statement?symbol=${encodeURIComponent(ticker)}&period=quarter&limit=4`, apiKey),
   ]);
 
   const annualRows = rows(estimates)
     .filter((item) => typeof item.date === "string" && item.date >= snapshotDate)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const annual = annualRows[0] ?? null;
-  const income = rows(incomeTtm)[0] ?? null;
-  const cashflow = rows(cashflowTtm)[0] ?? null;
+  const incomeQuarters = rows(quarterlyIncome);
+  const cashflowQuarters = rows(quarterlyCashflow);
 
-  const annualFwdEpsEstimate = numberOrNull(annual?.estimatedEpsAvg);
-  const estimatedAnnualRevenue = numberOrNull(annual?.estimatedRevenueAvg);
-  const actualTrailingRevenue = numberOrNull(income?.revenue);
-  const operatingIncome = numberOrNull(income?.operatingIncome);
-  const freeCashFlow = numberOrNull(cashflow?.freeCashFlow);
+  const annualFwdEpsEstimate = numberOrNull(annual?.epsAvg ?? annual?.estimatedEpsAvg);
+  const estimatedAnnualRevenue = numberOrNull(annual?.revenueAvg ?? annual?.estimatedRevenueAvg);
+  const actualTrailingRevenue = sumField(incomeQuarters, "revenue");
+  const operatingIncome = sumField(incomeQuarters, "operatingIncome");
+  const freeCashFlow = sumField(cashflowQuarters, "freeCashFlow");
   const operatingMargin = actualTrailingRevenue && operatingIncome !== null
     ? operatingIncome / actualTrailingRevenue : null;
   const fcfMargin = actualTrailingRevenue && freeCashFlow !== null
@@ -95,12 +103,12 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     operatingIncome, operatingMargin, freeCashFlow, fcfMargin,
   };
   const missingFields = Object.entries(required).filter(([, value]) => value === null).map(([key]) => key);
-  const allFailed = [estimates, incomeTtm, cashflowTtm].every((result) => result.error);
+  const allFailed = [estimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
 
   const normalized: NormalizedSnapshot = {
     ticker,
     estimateFiscalDate: typeof annual?.date === "string" ? annual.date : null,
-    epsDefinition: "FMP annual analyst consensus estimatedEpsAvg; standardized diluted EPS basis; not mixed with quarterly or adjusted earnings endpoints",
+    epsDefinition: "FMP annual analyst consensus epsAvg; standardized diluted EPS basis; not mixed with quarterly or adjusted earnings endpoints",
     annualFwdEpsEstimate,
     estimatedAnnualRevenue,
     actualTrailingRevenue,
@@ -112,5 +120,5 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     collectionStatus: allFailed ? "failed" : missingFields.length ? "partial" : "complete",
   };
 
-  return { raw: [estimates, incomeTtm, cashflowTtm], normalized };
+  return { raw: [estimates, quarterlyIncome, quarterlyCashflow], normalized };
 }
