@@ -187,6 +187,21 @@ tbody tr:hover { background: #fafbff; }
   .sync-button { padding: 0 12px; }
 }
 
+/* Shared FMP snapshot connection */
+.scope-banner i.connected { background: #18a676; box-shadow: 0 0 0 3px #dff5ed; }
+.data-origin { display: inline-flex; padding: 4px 6px; border-radius: 8px; font-size: 6px; font-weight: 800; letter-spacing: .4px; }
+.data-origin.live { color: #137957; background: #e5f6ef; }
+.data-origin.partial { color: #9b6b25; background: #fff1da; }
+.data-origin.sample { color: #727d92; background: #eef0f4; }
+.connected-section { position: relative; }
+.connected-metrics { min-height: 145px; padding: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: stretch; }
+.connected-metrics article { padding: 14px; display: grid; align-content: center; gap: 7px; border-radius: 8px; background: #f7f8fb; }
+.connected-metrics article span { color: #747e92; font-size: 8px; font-weight: 700; }
+.connected-metrics article strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.connected-metrics article small { color: #9aa2b2; font-size: 6px; line-height: 1.5; }
+.connection-message { margin: -12px 18px 14px; color: #9a7a45; font-size: 7px; }
+@media (max-width: 700px) { .connected-metrics { grid-template-columns: 1fr; } }
+
 /* Investment Philosophy v1.1 — phase 1 structure */
 .structure-shell { min-height: 100vh; display: grid; grid-template-columns: 232px minmax(0, 1fr); background: #f6f7fa; }
 .main-nav { position: sticky; top: 0; z-index: 30; height: 100vh; padding: 25px 17px; display: flex; flex-direction: column; background: #121b31; color: #fff; }

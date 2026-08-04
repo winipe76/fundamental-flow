@@ -15,6 +15,14 @@ test("keeps the FMP pilot component and update action", () => {
   assert.match(page, /지금 업데이트/);
 });
 
+test("connects shared pilot snapshots to primary analysis screens", () => {
+  assert.match(page, /usePilotFundamentals/);
+  assert.match(page, /<Dashboard onOpen=\{openCompany\} pilot=\{pilot\}/);
+  assert.match(page, /<Screener onOpen=\{openCompany\} pilot=\{pilot\}/);
+  assert.match(page, /<CompanyDetail ticker=\{selectedTicker\} pilot=\{pilot\}/);
+  assert.match(page, /FMP SNAPSHOT/);
+});
+
 test("labels pilot scope and future sections explicitly", () => {
   assert.match(page, /Pilot Universe: 3 \/ Nasdaq 100/);
   assert.match(page, /다음 단계에서 연결 예정/);

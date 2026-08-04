@@ -17,6 +17,7 @@ export default function Home() {
   const [view, setView] = useState<View>("Dashboard");
   const [selectedTicker, setSelectedTicker] = useState("PLTR");
   const [mobileNav, setMobileNav] = useState(false);
+  const pilot = usePilotFundamentals();
   const openCompany = (ticker: string) => { setSelectedTicker(ticker); setView("Company Detail"); setMobileNav(false); };
   return (
     <main className="structure-shell">
@@ -30,41 +31,50 @@ export default function Home() {
       </aside>
       <section className="structure-workspace">
         <header className="structure-header"><button className="menu-button" onClick={() => setMobileNav((value) => !value)} aria-label="메뉴 열기">☰</button><div><span>{view}</span><small>{view === "Data Pilot" ? "FMP 연결 데이터" : "Sample / 구조 준비 단계"}</small></div><button className="header-search" onClick={() => setView("Screener")}>⌕ <span>기업 검색</span></button></header>
-        {view === "Dashboard" && <Dashboard onOpen={openCompany}/>} 
-        {view === "Screener" && <Screener onOpen={openCompany}/>} 
-        {view === "Company Detail" && <CompanyDetail ticker={selectedTicker}/>} 
+        {view === "Dashboard" && <Dashboard onOpen={openCompany} pilot={pilot}/>} 
+        {view === "Screener" && <Screener onOpen={openCompany} pilot={pilot}/>} 
+        {view === "Company Detail" && <CompanyDetail ticker={selectedTicker} pilot={pilot}/>} 
         {view === "Watchlist" && <Watchlist onOpen={openCompany}/>} 
-        {view === "Data Pilot" && <DataPilot/>}
+        {view === "Data Pilot" && <DataPilot pilot={pilot}/>} 
       </section>
       {mobileNav && <button className="nav-overlay" aria-label="메뉴 닫기" onClick={() => setMobileNav(false)}/>}
     </main>
   );
 }
 
-function Dashboard({ onOpen }: { onOpen: (ticker: string) => void }) {
+function Dashboard({ onOpen, pilot }: { onOpen: (ticker: string) => void; pilot: PilotState }) {
   const cards = [{ label: "신규 선정", value: 1, tone: "blue" }, { label: "지속 개선", value: 1, tone: "green" }, { label: "관찰", value: 1, tone: "amber" }, { label: "주의", value: 0, tone: "red" }, { label: "제외", value: 0, tone: "gray" }];
   return <div className="structure-content"><section className="structure-hero"><div><span>NASDAQ 100 · FUNDAMENTAL CHANGE</span><h1>기업의 변화를 추적하는<br/>Investment Conviction Engine</h1><p>현재 단계에서는 기존 FMP 파일럿 3종목을 기반으로 전체 제품 구조를 미리 보여줍니다.</p></div><div className="universe-ring"><strong>3</strong><span>PILOT COMPANIES</span><small>of Nasdaq 100</small></div></section>
-    <div className="scope-banner"><div><i/> 실제 사용 가능</div><strong>Pilot Universe: 3 / Nasdaq 100</strong><span>PLTR · NVDA · MSFT</span></div>
+    <div className="scope-banner"><div><i className={pilot.status === "connected" || pilot.status === "partial" ? "connected" : ""}/> {pilot.status === "connected" ? "FMP 연결됨" : pilot.status === "partial" ? "일부 데이터 연결" : "Sample fallback"}</div><strong>Pilot Universe: 3 / Nasdaq 100</strong><span>{pilot.lastUpdated ? `Updated ${new Date(pilot.lastUpdated).toLocaleDateString("ko-KR")}` : "PLTR · NVDA · MSFT"}</span></div>
     <div className="status-card-grid">{cards.map((card) => <article className={`status-card ${card.tone}`} key={card.label}><span>{card.label}</span><strong>{card.value}</strong><small>{card.value ? "Sample classification" : "분류 결과 없음"}</small></article>)}</div>
     <div className="dashboard-grid"><section className="structure-panel"><PanelHeader eyebrow="PILOT SIGNALS" title="기업 현황" badge="SAMPLE"/><div className="company-summary-list">{pilotCompanies.map((item) => <button key={item.ticker} onClick={() => onOpen(item.ticker)}><span className="ticker-avatar">{item.ticker.slice(0,2)}</span><div><strong>{item.ticker}</strong><small>{item.company}</small></div><StatusPill status={item.status}/><b>{item.change}</b><i>›</i></button>)}</div></section>
-      <section className="structure-panel roadmap-panel"><PanelHeader eyebrow="NEXT CONNECTIONS" title="분석 모듈" badge="준비 중"/><div>{["Raw Data", "Derived Metrics", "Monthly Trends", "Screening Engine", "AI Opinion"].map((item,index) => <section key={item}><span>0{index+1}</span><strong>{item}</strong><small>{index === 0 ? "Data Pilot에서 일부 사용 가능" : "다음 단계에서 연결 예정"}</small></section>)}</div></section></div>
+      <section className="structure-panel roadmap-panel"><PanelHeader eyebrow="DATA CONNECTION" title="분석 모듈" badge={pilot.snapshots.length ? "FMP CONNECTED" : "준비 중"}/><div>{["Raw Data", "Derived Metrics", "Monthly Trends", "Screening Engine", "AI Opinion"].map((item,index) => <section key={item}><span>0{index+1}</span><strong>{item}</strong><small>{index === 0 ? "3종목 FMP snapshot 연결" : index === 1 ? "기존 Pilot 계산값 일부 연결" : "다음 단계에서 연결 예정"}</small></section>)}</div></section></div>
   </div>;
 }
 
-function Screener({ onOpen }: { onOpen: (ticker: string) => void }) {
+function Screener({ onOpen, pilot }: { onOpen: (ticker: string) => void; pilot: PilotState }) {
   const [query, setQuery] = useState(""); const [status, setStatus] = useState("All status");
   const visible = pilotCompanies.filter((item) => (!query || `${item.ticker} ${item.company}`.toLowerCase().includes(query.toLowerCase())) && (status === "All status" || item.status === status));
   return <div className="structure-content"><PageHeading eyebrow="SCREENING WORKSPACE" title="Screener" description="상태와 변화 중심으로 기업을 탐색합니다. 현재 분류와 사유는 화면 구조 검증용 Sample입니다." badge="SAMPLE LOGIC"/>
     <div className="filter-bar"><label><span>⌕</span><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="티커 또는 회사명 검색"/></label><select value={status} onChange={(e)=>setStatus(e.target.value)}><option>All status</option><option>Newly Selected</option><option>Continuing Improvement</option><option>Watch</option></select><span>{visible.length} companies</span></div>
-    <section className="structure-panel screener-table"><table><thead><tr><th>상태</th><th>티커</th><th>회사명</th><th>섹터</th><th>주요 변화</th><th>선정·제외 이유</th><th/></tr></thead><tbody>{visible.map((item)=><tr key={item.ticker} onClick={()=>onOpen(item.ticker)}><td><StatusPill status={item.status}/></td><td><strong>{item.ticker}</strong></td><td>{item.company}</td><td>{item.sector}</td><td className="positive">{item.change}<small>Sample</small></td><td>{item.reason}</td><td>›</td></tr>)}</tbody></table></section>
+    <section className="structure-panel screener-table"><table><thead><tr><th>상태</th><th>티커</th><th>회사명</th><th>섹터</th><th>주요 변화</th><th>선정·제외 이유</th><th>데이터</th><th/></tr></thead><tbody>{visible.map((item)=>{ const snapshot = findSnapshot(pilot.snapshots,item.ticker); const epsChange = snapshotNumber(snapshot,"fwd_eps_change_pct","fwdEpsChangePct"); return <tr key={item.ticker} onClick={()=>onOpen(item.ticker)}><td><StatusPill status={item.status}/></td><td><strong>{item.ticker}</strong></td><td>{item.company}</td><td>{item.sector}</td><td className={epsChange === null ? "" : epsChange >= 0 ? "positive" : "negative"}>{epsChange === null ? item.change : `FWD EPS ${percent(epsChange)}`}<small>{epsChange === null ? "Sample fallback" : "FMP snapshot"}</small></td><td>{item.reason}<small>Screening logic: Sample</small></td><td><DataBadge snapshot={snapshot}/></td><td>›</td></tr>})}</tbody></table></section>
   </div>;
 }
 
-function CompanyDetail({ ticker }: { ticker: string }) {
+function CompanyDetail({ ticker, pilot }: { ticker: string; pilot: PilotState }) {
   const company = pilotCompanies.find((item)=>item.ticker===ticker) ?? pilotCompanies[0];
+  const snapshot = findSnapshot(pilot.snapshots, ticker);
+  const eps = snapshotNumber(snapshot,"annual_fwd_eps_estimate","annualFwdEpsEstimate");
+  const estimatedRevenue = snapshotNumber(snapshot,"estimated_annual_revenue","estimatedAnnualRevenue");
+  const trailingRevenue = snapshotNumber(snapshot,"actual_trailing_revenue","actualTrailingRevenue");
+  const operatingMargin = snapshotNumber(snapshot,"operating_margin","operatingMargin");
+  const freeCashFlow = snapshotNumber(snapshot,"free_cash_flow","freeCashFlow");
+  const fcfMargin = snapshotNumber(snapshot,"fcf_margin","fcfMargin");
   return <div className="structure-content"><section className="detail-heading"><div className="ticker-avatar large">{company.ticker.slice(0,2)}</div><div><span>{company.sector}</span><h1>{company.company}</h1><p>{company.ticker} · Nasdaq 100 Pilot</p></div><StatusPill status={company.status}/></section>
     <div className="detail-section-grid"><section className="structure-panel wide"><PanelHeader eyebrow="COMPANY PROFILE" title="기업 기본 정보" badge="SAMPLE"/><div className="profile-grid"><span>티커<strong>{company.ticker}</strong></span><span>회사명<strong>{company.company}</strong></span><span>섹터<strong>{company.sector}</strong></span><span>데이터 범위<strong>Pilot Universe</strong></span></div></section>
-      <PlaceholderSection title="Raw Data" eyebrow="SOURCE VALUES" note="기존 FMP Pilot 데이터와 연결되는 영역입니다." ready/><PlaceholderSection title="Derived Metrics" eyebrow="CALCULATED VALUES" note="다음 단계에서 계산 로직 연결 예정"/><PlaceholderSection title="Monthly Trends" eyebrow="TIME SERIES" note="다음 단계에서 월별 비교 시각화 연결 예정"/><PlaceholderSection title="Screening Status" eyebrow="CLASSIFICATION" note="현재 상태는 Sample이며 다음 단계에서 규칙 연결 예정"/><PlaceholderSection title="AI Opinion" eyebrow="INVESTMENT CONVICTION" note="다음 단계에서 AI 분석 영역 연결 예정"/></div>
+      <section className="structure-panel connected-section"><PanelHeader eyebrow="SOURCE VALUES" title="Raw Data" badge={snapshot ? "FMP SNAPSHOT" : "SAMPLE FALLBACK"}/><div className="connected-metrics"><MetricValue label="FWD EPS" value={eps === null ? "—" : `$${eps.toFixed(2)}`} helper="Forward Earnings per Share · 예상 주당순이익"/><MetricValue label="Estimated Revenue" value={compactMoney(estimatedRevenue)} helper="예상 연매출"/><MetricValue label="Trailing Revenue" value={compactMoney(trailingRevenue)} helper="TTM 실제 매출"/></div>{!snapshot && <p className="connection-message">API 데이터가 준비되면 자동으로 교체됩니다.</p>}</section>
+      <section className="structure-panel connected-section"><PanelHeader eyebrow="EXISTING PILOT VALUES" title="Derived Metrics" badge={snapshot ? "CONNECTED" : "준비 중"}/><div className="connected-metrics"><MetricValue label="Operating Margin" value={operatingMargin === null ? "—" : percent(operatingMargin * 100)} helper="영업이익률"/><MetricValue label="FCF" value={compactMoney(freeCashFlow)} helper="Free Cash Flow · 잉여현금흐름"/><MetricValue label="FCF Margin" value={fcfMargin === null ? "—" : percent(fcfMargin * 100)} helper="잉여현금흐름률"/></div></section>
+      <PlaceholderSection title="Monthly Trends" eyebrow="TIME SERIES" note={snapshot ? "현재 snapshot 연결 완료 · 직전 월 데이터 축적 후 추세 표시" : "다음 단계에서 월별 비교 시각화 연결 예정"}/><PlaceholderSection title="Screening Status" eyebrow="CLASSIFICATION" note="현재 상태는 Sample이며 다음 단계에서 규칙 연결 예정"/><PlaceholderSection title="AI Opinion" eyebrow="INVESTMENT CONVICTION" note="다음 단계에서 AI 분석 영역 연결 예정"/></div>
     <section className="abbreviation-guide"><span>약어 안내</span><Abbreviation short="FWD EPS" full="Forward Earnings per Share" ko="예상 주당순이익"/><Abbreviation short="FCF" full="Free Cash Flow" ko="잉여현금흐름"/><Abbreviation short="CFO" full="Operating Cash Flow" ko="영업현금흐름"/></section>
   </div>;
 }
@@ -76,6 +86,7 @@ function PanelHeader({eyebrow,title,badge}:{eyebrow:string;title:string;badge:st
 function StatusPill({status}:{status:PilotCompany["status"]}) { return <span className={`structure-status ${status.toLowerCase().replaceAll(" ","-")}`}>{status}</span>; }
 function PlaceholderSection({title,eyebrow,note,ready=false}:{title:string;eyebrow:string;note:string;ready?:boolean}) { return <section className="structure-panel placeholder-section"><PanelHeader eyebrow={eyebrow} title={title} badge={ready?"PILOT DATA":"준비 중"}/><div><span>{ready?"↗":"◇"}</span><strong>{note}</strong><small>{ready?"Data Pilot 화면에서 현재 값을 확인할 수 있습니다.":"빈 영역 대신 향후 연결 지점을 명확히 표시합니다."}</small></div></section>; }
 function Abbreviation({short,full,ko}:{short:string;full:string;ko:string}) { return <span className="abbreviation" title={`${full} · ${ko}`}><b>{short}</b><small>{full}<em>{ko}</em></small></span>; }
+function MetricValue({label,value,helper}:{label:string;value:string;helper:string}) { return <article><span>{label}</span><strong>{value}</strong><small>{helper}</small></article>; }
 
 type ApiStatus = "loading" | "connected" | "key_missing" | "database_error" | "database_unavailable" | "partial" | "error";
 type Snapshot = {
@@ -108,6 +119,7 @@ type Snapshot = {
   collection_status?: "complete" | "partial" | "failed";
   collectionStatus?: "complete" | "partial" | "failed";
 };
+type PilotState = { status: ApiStatus; snapshots: Snapshot[]; lastUpdated: string | null; refreshing: boolean; refresh: () => Promise<void> };
 
 const companyNames: Record<string, string> = {
   PLTR: "Palantir Technologies",
@@ -146,37 +158,43 @@ function missingList(value: unknown): string[] {
   } catch { return []; }
 }
 
-function DataPilot() {
+function usePilotFundamentals(): PilotState {
   const [status, setStatus] = useState<ApiStatus>("loading");
-  const [snapshots, setSnapshots] = useState<Snapshot[]>(demoSnapshots);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
   const loadStatus = useCallback(async () => {
     try {
       const response = await fetch("/api/fundamentals", { cache: "no-store" });
       const payload = await response.json();
       setStatus((payload.status as ApiStatus) || (response.ok ? "connected" : "error"));
-      if (Array.isArray(payload.snapshots) && payload.snapshots.length) setSnapshots(payload.snapshots);
+      setSnapshots(Array.isArray(payload.snapshots) ? payload.snapshots : []);
       setLastUpdated(payload.lastUpdated ?? null);
-    } catch {
-      setStatus("error");
-    }
+    } catch { setStatus("error"); setSnapshots([]); }
   }, []);
-
   useEffect(() => { queueMicrotask(() => { void loadStatus(); }); }, [loadStatus]);
-
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const response = await fetch("/api/fundamentals", { method: "POST" });
       const payload = await response.json();
       setStatus((payload.status as ApiStatus) || (response.ok ? "connected" : "error"));
-      if (Array.isArray(payload.results) && payload.results.length) setSnapshots(payload.results);
+      if (Array.isArray(payload.results)) setSnapshots(payload.results);
       setLastUpdated(payload.lastUpdated ?? null);
     } catch { setStatus("error"); }
     finally { setRefreshing(false); }
-  };
+  }, []);
+  return { status, snapshots, lastUpdated, refreshing, refresh };
+}
+
+function findSnapshot(rows: Snapshot[], ticker: string) { return rows.find((row) => row.ticker === ticker) ?? null; }
+function snapshotNumber(row: Snapshot | null, snake: keyof Snapshot, camel: keyof Snapshot) { return row ? number(row, snake, camel) : null; }
+function compactMoney(value: number | null) { return value === null ? "—" : new Intl.NumberFormat("ko-KR", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(value); }
+function DataBadge({snapshot}:{snapshot:Snapshot|null}) { if (!snapshot) return <span className="data-origin sample">SAMPLE</span>; const missing = missingList(read(snapshot,"missing_fields","missingFields")); return <span className={`data-origin ${missing.length ? "partial" : "live"}`}>{missing.length ? `PARTIAL ${missing.length}` : "FMP LIVE"}</span>; }
+
+function DataPilot({pilot}:{pilot:PilotState}) {
+  const { status, lastUpdated, refreshing, refresh } = pilot;
+  const snapshots = pilot.snapshots.length ? pilot.snapshots : demoSnapshots;
 
   const missingCount = useMemo(() => snapshots.filter((row) => {
     const raw = read(row, "missing_fields", "missingFields");
