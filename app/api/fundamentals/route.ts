@@ -61,11 +61,15 @@ export async function POST() {
         ).bind(ticker, snapshotDate, raw.endpoint, raw.status, JSON.stringify(raw.data), raw.error, collectedAt).run();
       }
       const oneMonth = await runtime.DB.prepare(`SELECT ntm_eps FROM fundamental_snapshots
-        WHERE ticker=? AND snapshot_date<=date(?,'-1 month') AND ntm_eps IS NOT NULL ORDER BY snapshot_date DESC LIMIT 1`
-      ).bind(ticker, snapshotDate).first<Record<string, unknown>>();
+        WHERE ticker=? AND snapshot_date>=date(?,'start of month','-1 month')
+          AND snapshot_date<date(?,'start of month') AND ntm_eps IS NOT NULL
+        ORDER BY snapshot_date DESC LIMIT 1`
+      ).bind(ticker, snapshotDate, snapshotDate).first<Record<string, unknown>>();
       const threeMonths = await runtime.DB.prepare(`SELECT ntm_eps FROM fundamental_snapshots
-        WHERE ticker=? AND snapshot_date<=date(?,'-3 months') AND ntm_eps IS NOT NULL ORDER BY snapshot_date DESC LIMIT 1`
-      ).bind(ticker, snapshotDate).first<Record<string, unknown>>();
+        WHERE ticker=? AND snapshot_date>=date(?,'start of month','-3 months')
+          AND snapshot_date<date(?,'start of month','-2 months') AND ntm_eps IS NOT NULL
+        ORDER BY snapshot_date DESC LIMIT 1`
+      ).bind(ticker, snapshotDate, snapshotDate).first<Record<string, unknown>>();
       const value = collected.normalized;
       const ntmEpsChange1mPct = percentChange(value.ntmEps, dbNumber(oneMonth?.ntm_eps));
       const ntmEpsChange3mPct = percentChange(value.ntmEps, dbNumber(threeMonths?.ntm_eps));
