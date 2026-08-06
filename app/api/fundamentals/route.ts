@@ -14,9 +14,17 @@ function dbNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!runtime.DB) return json({ configured: Boolean(runtime.FMP_API_KEY), status: "database_unavailable", snapshots: [], history: [] }, 503);
   try {
+    const historyTicker = new URL(request.url).searchParams.get("ticker")?.toUpperCase() ?? null;
+    if (historyTicker) {
+      if (!(TEST_TICKERS as readonly string[]).includes(historyTicker)) return json({ status: "invalid_ticker", history: [] }, 400);
+      const history = await runtime.DB.prepare(`
+        SELECT * FROM fundamental_snapshots WHERE ticker=? ORDER BY snapshot_date DESC LIMIT 60
+      `).bind(historyTicker).all();
+      return json({ status: "connected", ticker: historyTicker, history: history.results });
+    }
     const placeholders = TEST_TICKERS.map(() => "?").join(",");
     const latest = await runtime.DB.prepare(`
       SELECT s.* FROM fundamental_snapshots s
@@ -24,10 +32,6 @@ export async function GET() {
         SELECT ticker, MAX(snapshot_date) snapshot_date FROM fundamental_snapshots
         WHERE ticker IN (${placeholders}) GROUP BY ticker
       ) x ON x.ticker=s.ticker AND x.snapshot_date=s.snapshot_date ORDER BY s.ticker
-    `).bind(...TEST_TICKERS).all();
-    const history = await runtime.DB.prepare(`
-      SELECT * FROM fundamental_snapshots WHERE ticker IN (${placeholders})
-      ORDER BY ticker, snapshot_date DESC LIMIT 36
     `).bind(...TEST_TICKERS).all();
     const latestSuccessful = await runtime.DB.prepare(`
       SELECT MAX(collected_at) collected_at FROM fundamental_snapshots
@@ -38,7 +42,7 @@ export async function GET() {
     return json({
       configured: Boolean(runtime.FMP_API_KEY), status: runtime.FMP_API_KEY ? (hasPartial ? "partial" : "connected") : "key_missing",
       tickers: TEST_TICKERS, lastUpdated: rows[0]?.collected_at ?? null,
-      lastSuccessfulUpdate: latestSuccessful?.collected_at ?? null, snapshots: rows, history: history.results,
+      lastSuccessfulUpdate: latestSuccessful?.collected_at ?? null, snapshots: rows, history: [],
     });
   } catch (error) {
     return json({ configured: Boolean(runtime.FMP_API_KEY), status: "database_error", snapshots: [], history: [], error: error instanceof Error ? error.message : "Database error" }, 500);
