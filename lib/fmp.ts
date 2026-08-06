@@ -12,8 +12,6 @@ export interface RawResult {
   error: string | null;
 }
 
-export interface NtmComponent { date: string; fiscalYear: string | null; period: string | null; eps: number }
-
 export interface NormalizedSnapshot {
   ticker: string;
   latestFiscalYear: string | null;
@@ -27,8 +25,8 @@ export interface NormalizedSnapshot {
   latestQuarterRevenue: number | null;
   priorYearQuarterRevenue: number | null;
   revenueYoyPct: number | null;
-  ntmEps: number | null;
-  ntmComponents: NtmComponent[];
+  fy1FiscalDate: string | null;
+  fy1Eps: number | null;
   actualTrailingRevenue: number | null;
   operatingIncome: number | null;
   operatingMargin: number | null;
@@ -73,8 +71,8 @@ function sumField(items: JsonRow[], field: string): number | null {
 }
 
 export async function collectTicker(ticker: string, apiKey: string, snapshotDate: string) {
-  const [quarterlyEstimates, quarterlyIncome, quarterlyCashflow] = await Promise.all([
-    request(`analyst-estimates?symbol=${encodeURIComponent(ticker)}&period=quarter&page=0&limit=16`, apiKey),
+  const [annualEstimates, quarterlyIncome, quarterlyCashflow] = await Promise.all([
+    request(`analyst-estimates?symbol=${encodeURIComponent(ticker)}&period=annual&page=0&limit=10`, apiKey),
     request(`income-statement?symbol=${encodeURIComponent(ticker)}&period=quarter&limit=8`, apiKey),
     request(`cash-flow-statement?symbol=${encodeURIComponent(ticker)}&period=quarter&limit=4`, apiKey),
   ]);
@@ -95,15 +93,11 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const priorYearQuarterRevenue = numberOrNull(prior?.revenue);
   const revenueYoyPct = percentChange(latestQuarterRevenue, priorYearQuarterRevenue);
 
-  const estimateRows = sortedByDate(rows(quarterlyEstimates))
-    .filter((row) => typeof row.date === "string" && row.date > snapshotDate)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .slice(0, 4);
-  const ntmComponents: NtmComponent[] = estimateRows.flatMap((row) => {
-    const eps = numberOrNull(row.epsAvg ?? row.estimatedEpsAvg);
-    return eps === null ? [] : [{ date: String(row.date), fiscalYear: row.fiscalYear == null ? null : String(row.fiscalYear), period: typeof row.period === "string" ? row.period : null, eps }];
-  });
-  const ntmEps = sumFour(ntmComponents.map((item) => item.eps));
+  const fy1Row = rows(annualEstimates)
+    .filter((row) => typeof row.date === "string" && row.date >= snapshotDate)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0] ?? null;
+  const fy1FiscalDate = typeof fy1Row?.date === "string" ? fy1Row.date : null;
+  const fy1Eps = numberOrNull(fy1Row?.epsAvg ?? fy1Row?.estimatedEpsAvg);
 
   const actualTrailingRevenue = sumField(incomeQuarters, "revenue");
   const operatingIncome = sumField(incomeQuarters, "operatingIncome");
@@ -111,19 +105,19 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const operatingMargin = actualTrailingRevenue && operatingIncome !== null ? operatingIncome / actualTrailingRevenue : null;
   const fcfMargin = actualTrailingRevenue && freeCashFlow !== null ? freeCashFlow / actualTrailingRevenue : null;
 
-  const required = { latestQuarterEps, priorYearQuarterEps, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct, ntmEps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin };
+  const required = { latestQuarterEps, priorYearQuarterEps, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct, fy1Eps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin };
   const missingFields = Object.entries(required).filter(([, value]) => value === null).map(([key]) => key);
   const actualCoreAvailable = [latestQuarterEps, priorYearQuarterEps, latestQuarterRevenue, priorYearQuarterRevenue, actualTrailingRevenue, operatingMargin, fcfMargin].every((value) => value !== null);
-  const allFailed = [quarterlyEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
+  const allFailed = [annualEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
 
   const normalized: NormalizedSnapshot = {
     ticker, latestFiscalYear, latestFiscalPeriod, latestPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
     latestQuarterEps, priorYearQuarterEps, epsYoyPct: epsComparison.yoyPct, epsYoyStatus: epsComparison.status,
     epsChangeAmount: epsComparison.changeAmount, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct,
-    ntmEps, ntmComponents, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin,
-    epsDefinition: "FMP standardized GAAP diluted EPS (epsDiluted); exact same fiscal quarter YoY; NTM uses four future quarterly analyst consensus epsAvg values",
+    fy1FiscalDate, fy1Eps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin,
+    epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: nearest future fiscal-year annual analyst consensus epsAvg (FY1)",
     missingFields,
-    collectionStatus: allFailed ? "failed" : actualCoreAvailable && ntmEps !== null ? "complete" : "partial",
+    collectionStatus: allFailed ? "failed" : actualCoreAvailable && fy1Eps !== null ? "complete" : "partial",
   };
-  return { raw: [quarterlyEstimates, quarterlyIncome, quarterlyCashflow], normalized };
+  return { raw: [annualEstimates, quarterlyIncome, quarterlyCashflow], normalized };
 }

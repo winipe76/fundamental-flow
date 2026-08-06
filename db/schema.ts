@@ -66,6 +66,7 @@ export const fundamentalSnapshots = sqliteTable("fundamental_snapshots", {
   ntmComponents: text("ntm_components", { mode: "json" }).$type<Array<{ date: string; fiscalYear: string | null; period: string | null; eps: number }>>(),
   ntmEpsChange1mPct: real("ntm_eps_change_1m_pct"),
   ntmEpsChange3mPct: real("ntm_eps_change_3m_pct"),
+  fy1EpsChange3mPct: real("fy1_eps_change_3m_pct"),
 }, (table) => [
   uniqueIndex("idx_fundamental_snapshots_ticker_date").on(table.ticker, table.snapshotDate),
   index("idx_fundamental_snapshots_date_status").on(table.snapshotDate, table.collectionStatus),

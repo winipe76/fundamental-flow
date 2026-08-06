@@ -10,5 +10,5 @@ test("classifies EPS sign exceptions",()=>{
   assert.equal(compareQuarterEps(-.3,-.2).status,"loss_widening");
   assert.equal(compareQuarterEps(.1,.001).status,"unavailable");
 });
-test("requires exactly four estimates for NTM",()=>{assert.equal(sumFour([1,1,1,1]),4);assert.equal(sumFour([1,1,1]),null);assert.equal(sumFour([1,1,null,1]),null)});
+test("requires exactly four quarters for TTM margin inputs",()=>{assert.equal(sumFour([1,1,1,1]),4);assert.equal(sumFour([1,1,1]),null);assert.equal(sumFour([1,1,null,1]),null)});
 test("calculates revenue and revision rates",()=>assert.equal(percentChange(112,100),12.00000000000001));
