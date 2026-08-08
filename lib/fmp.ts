@@ -1,6 +1,6 @@
 import { compareQuarterEps, percentChange, sumFour } from "@/lib/fundamental-math";
 
-export const TEST_TICKERS = ["PLTR", "NVDA", "MSFT"] as const;
+export const TEST_TICKERS = ["MU", "TER", "ALNY", "PLTR", "NVDA"] as const;
 const BASE_URL = "https://financialmodelingprep.com/stable";
 
 type JsonRow = Record<string, unknown>;
