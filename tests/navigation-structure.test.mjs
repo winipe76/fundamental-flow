@@ -6,7 +6,7 @@ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
 const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
 test("includes all product screens",()=>{for(const label of ["Dashboard","Screener","Company Detail","Watchlist","Data Pilot"])assert.match(page,new RegExp(label))});
 test("uses consistent actual growth and FY1 definitions",()=>{for(const label of ["최근 분기 EPS","최근 분기 Revenue","FY1 EPS","1개월 수정률","3개월 수정률"])assert.match(page,new RegExp(label))});
-test("shows a Nasdaq 100 pilot ranking without changing Dashboard",()=>{for(const label of ["NASDAQ 100 · PILOT RANKING","TOP 10","종합점수","Nasdaq 100 업데이트","Dashboard 선정 상태에는 반영하지 않습니다"])assert.match(page,new RegExp(label))});
+test("shows a Nasdaq 100 pilot ranking without changing Dashboard",()=>{for(const label of ["NASDAQ 100 · PILOT RANKING","TOP 10","Fundamental Score","Nasdaq 100 업데이트","Dashboard 선정 상태에는 반영하지 않습니다"])assert.match(page,new RegExp(label))});
 test("does not render live sample financial values",()=>{assert.doesNotMatch(page,/demoSnapshots|Sample fallback/);assert.match(page,/LIVE 데이터가 로드된 후에만/)});
 test("provides responsive growth layouts",()=>{assert.match(css,/\.growth-summary/);assert.match(css,/@media \(max-width:700px\)/)});
 test("routes per-company snapshot history from Data Pilot",()=>{assert.match(page,/이력 보기/);assert.match(page,/useCompanyHistory/);assert.match(page,/SNAPSHOT HISTORY/);assert.match(page,/fundamentals\?ticker=/)});

@@ -71,3 +71,13 @@ export const fundamentalSnapshots = sqliteTable("fundamental_snapshots", {
   uniqueIndex("idx_fundamental_snapshots_ticker_date").on(table.ticker, table.snapshotDate),
   index("idx_fundamental_snapshots_date_status").on(table.snapshotDate, table.collectionStatus),
 ]);
+
+/** Fundamental Flow owns the five-stage classification. Candidate membership lives in Buy Engine. */
+export const fundamentalClassifications = sqliteTable("fundamental_classifications", {
+  ticker: text("ticker").primaryKey(),
+  stage: text("stage", { enum: ["newly_selected", "continuing_improvement", "watch", "caution", "excluded"] }).notNull(),
+  reason: text("reason"),
+  version: text("version").notNull().default("fundamental-stage-v1"),
+  classifiedAt: text("classified_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [index("idx_fundamental_classifications_stage_updated").on(table.stage, table.updatedAt)]);
