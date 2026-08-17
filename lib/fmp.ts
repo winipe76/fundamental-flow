@@ -1,4 +1,5 @@
 import { compareQuarterEps, percentChange, sumFour } from "@/lib/fundamental-math";
+import { calculateSnapshotQuality, type SnapshotQuality } from "@/lib/snapshot-quality";
 
 export const TEST_TICKERS = ["PLTR", "NVDA", "MU"] as const;
 const BASE_URL = "https://financialmodelingprep.com/stable";
@@ -39,6 +40,7 @@ export interface NormalizedSnapshot {
   epsDefinition: string;
   missingFields: string[];
   collectionStatus: "complete" | "partial" | "failed";
+  snapshotQuality: SnapshotQuality;
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -117,6 +119,11 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const missingFields = Object.entries(required).filter(([, value]) => value === null).map(([key]) => key);
   const requiredFieldsAvailable = Object.values(required).every((value) => value !== null);
   const allFailed = [annualEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
+  const snapshotQuality = calculateSnapshotQuality({
+    revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin,
+    operatingCashFlow, capitalExpenditure, fiscalYear: latestFiscalYear, fiscalPeriod: latestFiscalPeriod,
+    fiscalPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
+  });
 
   const normalized: NormalizedSnapshot = {
     ticker, latestFiscalYear, latestFiscalPeriod, latestPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
@@ -128,6 +135,7 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: nearest future fiscal-year annual analyst consensus epsAvg (FY1)",
     missingFields,
     collectionStatus: allFailed ? "failed" : requiredFieldsAvailable ? "complete" : "partial",
+    snapshotQuality,
   };
   return { raw: [annualEstimates, quarterlyIncome, quarterlyCashflow], normalized };
 }

@@ -89,3 +89,24 @@ FMP response
   → existing Calculation Engine
   → derived fields and validation report
 ```
+
+## Snapshot Quality
+
+Snapshot Quality is a 0–100 data-completeness score. It does not evaluate whether a company is attractive; it evaluates whether the snapshot is reliable enough to interpret.
+
+| Check | Weight | Pass condition |
+| --- | ---: | --- |
+| Revenue | 15 | Finite TTM Revenue |
+| Revenue Growth | 15 | Finite exact-quarter YoY growth |
+| Forward EPS | 14 | Finite FY1 annual `epsAvg` |
+| Operating Margin | 14 | Finite TTM Operating Margin |
+| CFO | 28 | Finite TTM Operating Cash Flow |
+| CAPEX | 10 | Finite normalized TTM CAPEX |
+| Fiscal | 4 | Fiscal year, fiscal period, and period-end date all present |
+| Total | 100 | All checks pass |
+
+CFO receives 28 points because the requested quality example requires a CFO-only omission to produce Quality 72. The weighting is a product policy, not an FMP field property.
+
+- Quality 80–100: rule-based AI analysis may proceed normally.
+- Quality below 80: AI output must display a caution and lower its confidence.
+- Quality 100: all six raw fields and fiscal metadata are present.

@@ -77,6 +77,9 @@ export const fundamentalSnapshots = sqliteTable("fundamental_snapshots", {
   forwardEpsBasis: text("forward_eps_basis"),
   dataSource: text("data_source"),
   calculationSuccess: integer("calculation_success", { mode: "boolean" }),
+  snapshotQualityScore: integer("snapshot_quality_score"),
+  snapshotQualityChecks: text("snapshot_quality_checks", { mode: "json" }).$type<Record<string, boolean>>(),
+  snapshotQualityCaution: integer("snapshot_quality_caution", { mode: "boolean" }),
 }, (table) => [
   uniqueIndex("idx_fundamental_snapshots_ticker_date").on(table.ticker, table.snapshotDate),
   index("idx_fundamental_snapshots_date_status").on(table.snapshotDate, table.collectionStatus),

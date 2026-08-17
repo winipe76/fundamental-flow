@@ -69,12 +69,14 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
   } satisfies RawFundamentals) : null;
   await db.prepare(`UPDATE fundamental_snapshots SET
     operating_cash_flow=?,capital_expenditure=?,free_cash_flow=?,fcf_margin=?,cfo_margin=?,capex_intensity=?,
-    classic_rule_40=?,operating_rule_40=?,cash_rule_40=?,forward_eps_basis=?,data_source=?,calculation_success=?
+    classic_rule_40=?,operating_rule_40=?,cash_rule_40=?,forward_eps_basis=?,data_source=?,calculation_success=?,
+    snapshot_quality_score=?,snapshot_quality_checks=?,snapshot_quality_caution=?
     WHERE ticker=? AND snapshot_date=?`
   ).bind(
     value.operatingCashFlow,value.capitalExpenditure,derived?.freeCashFlow??null,derived===null?null:derived.freeCashFlowMargin/100,
     derived===null?null:derived.cfoMargin/100,derived?.capexIntensity??null,derived?.classicRule40??null,derived?.operatingRule40??null,
-    derived?.cashRule40??null,value.forwardEpsBasis,value.dataSource,calculationSuccess?1:0,ticker,snapshotDate
+    derived?.cashRule40??null,value.forwardEpsBasis,value.dataSource,calculationSuccess?1:0,
+    value.snapshotQuality.score,JSON.stringify(value.snapshotQuality.checks),value.snapshotQuality.aiCaution?1:0,ticker,snapshotDate
   ).run();
   return { ...value, freeCashFlow: derived?.freeCashFlow ?? null, fcfMargin: derived === null ? null : derived.freeCashFlowMargin / 100,
     derived, calculationSuccess, fy1EpsChange1mPct, fy1EpsChange3mPct, snapshotDate };

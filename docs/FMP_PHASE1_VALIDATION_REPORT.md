@@ -14,6 +14,7 @@ Each PLTR, NVDA, and MU report contains:
 - Data Source
 - Calculation Success
 - Missing Fields
+- Snapshot Quality score, seven checks, and AI caution status
 
 `Calculation Success = true` requires all six raw fields. The first FMP monthly snapshot has no comparable prior FMP month, so monthly change fields remain unavailable until the next monthly collection.
 
