@@ -12,12 +12,8 @@ export type FundamentalCandidateSnapshot = {
   ticker: string;
   company_name: string;
   fundamental_stage: FundamentalStage;
-  fundamental_score: number | null;
   metrics: Record<string, unknown>;
-  calculated_at: string;
-  updated_at: string;
   source_snapshot_date: string;
-  source_version: string;
 };
 
 export function normalizeTicker(value: unknown) {
@@ -36,11 +32,11 @@ export function parseFundamentalStage(value: unknown): FundamentalStage {
 
 export function selectFundamentalMetrics(row: Record<string, unknown>) {
   const fields = [
-    "latest_quarter_eps", "prior_year_quarter_eps", "eps_yoy_pct", "eps_yoy_status", "eps_change_amount",
-    "latest_quarter_revenue", "prior_year_quarter_revenue", "revenue_yoy_pct",
+    "latest_quarter_eps", "eps_yoy_pct", "eps_yoy_status", "latest_quarter_revenue", "revenue_yoy_pct",
     "annual_fwd_eps_estimate", "fwd_eps_change_pct", "fy1_eps_change_3m_pct",
     "actual_trailing_revenue", "operating_income", "operating_margin", "free_cash_flow", "fcf_margin",
-    "collection_status", "missing_fields", "latest_fiscal_year", "latest_fiscal_period", "latest_period_end",
+    "operating_cash_flow", "capital_expenditure", "cfo_margin", "capex_intensity",
+    "classic_rule_40", "operating_rule_40", "cash_rule_40", "snapshot_quality_score",
   ];
   return Object.fromEntries(fields.map((field) => [field, row[field] ?? null]));
 }
