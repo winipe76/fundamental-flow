@@ -6,8 +6,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Fundamental Flow | Actual Growth & FY1 Consensus",
-  description: "NASDAQ 100 기업의 분기 EPS·Revenue 성장과 FY1 EPS 컨센서스 추세를 분리해 추적하는 펀더멘털 스크리너",
+  title: "Fundamental Flow | Fundamental Overview",
+  description: "주가가 아닌 기업의 이익 전망, 성장, 수익성, 현금흐름 변화를 추적하는 Investment Conviction Engine",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
