@@ -21,3 +21,41 @@ export function sumFour(values: Array<number | null>): number | null {
     ? values.reduce((sum, value) => sum + value, 0)
     : null;
 }
+
+export type RawFundamentals = {
+  revenue: number;
+  revenueGrowth: number;
+  forwardEps: number;
+  operatingMargin: number;
+  operatingCashFlow: number;
+  capitalExpenditure: number;
+};
+
+export type DerivedFundamentals = {
+  freeCashFlow: number;
+  freeCashFlowMargin: number;
+  cfoMargin: number;
+  capexIntensity: number;
+  classicRule40: number;
+  operatingRule40: number;
+  cashRule40: number;
+};
+
+const roundOne = (value: number) => Number(value.toFixed(1));
+const percentOfRevenue = (value: number, revenue: number) => revenue === 0 ? 0 : value / revenue * 100;
+
+/** Existing calculation authority for normalized FMP snapshots. */
+export function calculateDerived(raw: RawFundamentals): DerivedFundamentals {
+  const freeCashFlow = raw.operatingCashFlow - raw.capitalExpenditure;
+  const freeCashFlowMargin = percentOfRevenue(freeCashFlow, raw.revenue);
+  const cfoMargin = percentOfRevenue(raw.operatingCashFlow, raw.revenue);
+  return {
+    freeCashFlow: roundOne(freeCashFlow),
+    freeCashFlowMargin: roundOne(freeCashFlowMargin),
+    cfoMargin: roundOne(cfoMargin),
+    capexIntensity: roundOne(percentOfRevenue(raw.capitalExpenditure, raw.revenue)),
+    classicRule40: roundOne(raw.revenueGrowth + freeCashFlowMargin),
+    operatingRule40: roundOne(raw.revenueGrowth + raw.operatingMargin),
+    cashRule40: roundOne(raw.revenueGrowth + cfoMargin),
+  };
+}

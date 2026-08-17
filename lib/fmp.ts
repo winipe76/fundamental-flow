@@ -1,6 +1,6 @@
 import { compareQuarterEps, percentChange, sumFour } from "@/lib/fundamental-math";
 
-export const TEST_TICKERS = ["MU", "TER", "ALNY", "PLTR", "NVDA"] as const;
+export const TEST_TICKERS = ["PLTR", "NVDA", "MU"] as const;
 const BASE_URL = "https://financialmodelingprep.com/stable";
 
 type JsonRow = Record<string, unknown>;
@@ -32,6 +32,10 @@ export interface NormalizedSnapshot {
   operatingMargin: number | null;
   freeCashFlow: number | null;
   fcfMargin: number | null;
+  operatingCashFlow: number | null;
+  capitalExpenditure: number | null;
+  forwardEpsBasis: "next_fiscal_year_annual_consensus";
+  dataSource: string;
   epsDefinition: string;
   missingFields: string[];
   collectionStatus: "complete" | "partial" | "failed";
@@ -102,10 +106,14 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const actualTrailingRevenue = sumField(incomeQuarters, "revenue");
   const operatingIncome = sumField(incomeQuarters, "operatingIncome");
   const freeCashFlow = sumField(cashflowQuarters, "freeCashFlow");
+  const operatingCashFlow = sumField(cashflowQuarters, "operatingCashFlow");
+  const reportedCapex = sumField(cashflowQuarters, "capitalExpenditure");
+  // FMP returns CAPEX as a negative cash outflow; calculations use a positive investment amount.
+  const capitalExpenditure = reportedCapex === null ? null : Math.abs(reportedCapex);
   const operatingMargin = actualTrailingRevenue && operatingIncome !== null ? operatingIncome / actualTrailingRevenue : null;
   const fcfMargin = actualTrailingRevenue && freeCashFlow !== null ? freeCashFlow / actualTrailingRevenue : null;
 
-  const required = { latestQuarterEps, priorYearQuarterEps, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct, fy1Eps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin };
+  const required = { revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin, operatingCashFlow, capitalExpenditure };
   const missingFields = Object.entries(required).filter(([, value]) => value === null).map(([key]) => key);
   const actualCoreAvailable = [latestQuarterEps, priorYearQuarterEps, latestQuarterRevenue, priorYearQuarterRevenue, actualTrailingRevenue, operatingMargin, fcfMargin].every((value) => value !== null);
   const allFailed = [annualEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
@@ -114,7 +122,9 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     ticker, latestFiscalYear, latestFiscalPeriod, latestPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
     latestQuarterEps, priorYearQuarterEps, epsYoyPct: epsComparison.yoyPct, epsYoyStatus: epsComparison.status,
     epsChangeAmount: epsComparison.changeAmount, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct,
-    fy1FiscalDate, fy1Eps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin,
+    fy1FiscalDate, fy1Eps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin, operatingCashFlow, capitalExpenditure,
+    forwardEpsBasis: "next_fiscal_year_annual_consensus",
+    dataSource: "FMP stable: analyst-estimates (annual), income-statement (quarter), cash-flow-statement (quarter)",
     epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: nearest future fiscal-year annual analyst consensus epsAvg (FY1)",
     missingFields,
     collectionStatus: allFailed ? "failed" : actualCoreAvailable && fy1Eps !== null ? "complete" : "partial",

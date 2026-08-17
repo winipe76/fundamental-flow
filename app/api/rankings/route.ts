@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { NASDAQ_100, NASDAQ_100_TICKERS, NASDAQ_100_BY_TICKER } from "@/lib/nasdaq100";
 import { rankSnapshots } from "@/lib/ranking";
 import { collectAndStoreTicker } from "@/lib/snapshot-store";
+import { TEST_TICKERS } from "@/lib/fmp";
 
 export const dynamic = "force-dynamic";
 type RuntimeEnv = { DB?: D1Database; FMP_API_KEY?: string };
@@ -45,15 +46,13 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   if (!runtime.FMP_API_KEY) return json({ status: "key_missing" }, 503);
   if (!runtime.DB) return json({ status: "database_unavailable" }, 503);
-  let body: { batch?: number; batchSize?: number } = {};
-  try { body = await request.json(); } catch { /* defaults */ }
-  const batchSize = Math.min(5, Math.max(1, Math.trunc(body.batchSize ?? 5)));
-  const totalBatches = Math.ceil(NASDAQ_100.length / batchSize);
-  const batch = Math.min(totalBatches - 1, Math.max(0, Math.trunc(body.batch ?? 0)));
-  const tickers = NASDAQ_100_TICKERS.slice(batch * batchSize, (batch + 1) * batchSize);
+  const batchSize = TEST_TICKERS.length;
+  const totalBatches = 1;
+  const batch = 0;
+  const tickers = [...TEST_TICKERS];
   const snapshotDate = new Date().toISOString().slice(0, 10);
   const collectedAt = new Date().toISOString();
   const results = [];
@@ -69,7 +68,7 @@ export async function POST(request: Request) {
     batch,
     batchSize,
     totalBatches,
-    processed: Math.min((batch + 1) * batchSize, NASDAQ_100.length),
+    processed: tickers.length,
     universeSize: NASDAQ_100.length,
     results,
   });

@@ -1,5 +1,5 @@
 import { collectTicker } from "@/lib/fmp";
-import { percentChange } from "@/lib/fundamental-math";
+import { calculateDerived, percentChange, type RawFundamentals } from "@/lib/fundamental-math";
 
 function dbNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -57,5 +57,25 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     value.epsYoyPct,value.epsYoyStatus,value.epsChangeAmount,value.latestQuarterRevenue,value.priorYearQuarterRevenue,
     value.revenueYoyPct,null,null,null,null,fy1EpsChange3mPct
   ).run();
-  return { ...value, fy1EpsChange1mPct, fy1EpsChange3mPct, snapshotDate };
+  const rawValues = [value.actualTrailingRevenue, value.revenueYoyPct, value.fy1Eps, value.operatingMargin, value.operatingCashFlow, value.capitalExpenditure];
+  const calculationSuccess = rawValues.every((item): item is number => typeof item === "number" && Number.isFinite(item));
+  const derived = calculationSuccess ? calculateDerived({
+    revenue: value.actualTrailingRevenue!,
+    revenueGrowth: value.revenueYoyPct!,
+    forwardEps: value.fy1Eps!,
+    operatingMargin: value.operatingMargin! * 100,
+    operatingCashFlow: value.operatingCashFlow!,
+    capitalExpenditure: value.capitalExpenditure!,
+  } satisfies RawFundamentals) : null;
+  await db.prepare(`UPDATE fundamental_snapshots SET
+    operating_cash_flow=?,capital_expenditure=?,free_cash_flow=?,fcf_margin=?,cfo_margin=?,capex_intensity=?,
+    classic_rule_40=?,operating_rule_40=?,cash_rule_40=?,forward_eps_basis=?,data_source=?,calculation_success=?
+    WHERE ticker=? AND snapshot_date=?`
+  ).bind(
+    value.operatingCashFlow,value.capitalExpenditure,derived?.freeCashFlow??null,derived===null?null:derived.freeCashFlowMargin/100,
+    derived===null?null:derived.cfoMargin/100,derived?.capexIntensity??null,derived?.classicRule40??null,derived?.operatingRule40??null,
+    derived?.cashRule40??null,value.forwardEpsBasis,value.dataSource,calculationSuccess?1:0,ticker,snapshotDate
+  ).run();
+  return { ...value, freeCashFlow: derived?.freeCashFlow ?? null, fcfMargin: derived === null ? null : derived.freeCashFlowMargin / 100,
+    derived, calculationSuccess, fy1EpsChange1mPct, fy1EpsChange3mPct, snapshotDate };
 }
