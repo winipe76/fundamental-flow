@@ -1,5 +1,18 @@
 # FMP Phase 1 Data Mapping
 
+| Mapping | Version | Verified |
+| --- | --- | --- |
+| FMP Mapping | 1.0 | 2026-08-17 |
+
+Verification scope: actual responses for `PLTR`, `NVDA`, and `MU` from the Income Statement, Cash Flow, and annual Analyst Estimates endpoints.
+
+Version policy:
+
+- Increment the major version when an FMP source field, endpoint, period basis, or production formula changes incompatibly.
+- Increment the minor version when a backward-compatible field or validation rule is added.
+- Update `Verified` only after inspecting actual FMP responses for all Phase 1 companies.
+- Do not change production mapping from documentation assumptions alone.
+
 ## Scope
 
 Phase 1 collects only `PLTR`, `NVDA`, and `MU`, in that order. The application reads `FMP_API_KEY` from the runtime environment. The key is never stored in source code, snapshots, or raw-response records.

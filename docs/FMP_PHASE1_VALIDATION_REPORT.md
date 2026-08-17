@@ -1,5 +1,9 @@
 # FMP Phase 1 Validation Report
 
+Mapping version: `FMP Mapping 1.0`
+
+Mapping verified: `2026-08-17`
+
 The API returns a per-company validation object through `GET /api/fundamentals` and after `POST /api/fundamentals`.
 
 Each PLTR, NVDA, and MU report contains:
