@@ -15,6 +15,8 @@ test("limits FMP Phase 1 collection in the requested order",()=>{
 test("maps all six raw fields and documents FY1 Forward EPS",()=>{
   for(const field of ["actualTrailingRevenue","revenueYoyPct","fy1Eps","operatingMargin","operatingCashFlow","capitalExpenditure"]) assert.match(fmp,new RegExp(field));
   assert.match(fmp,/next_fiscal_year_annual_consensus/);
+  assert.doesNotMatch(fmp,/estimatedEpsAvg/);
+  assert.match(fmp,/numberOrNull\(fy1Row\?\.epsAvg\)/);
 });
 
 test("uses the existing math module for all derived calculations",()=>{

@@ -101,7 +101,7 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     .filter((row) => typeof row.date === "string" && row.date >= snapshotDate)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0] ?? null;
   const fy1FiscalDate = typeof fy1Row?.date === "string" ? fy1Row.date : null;
-  const fy1Eps = numberOrNull(fy1Row?.epsAvg ?? fy1Row?.estimatedEpsAvg);
+  const fy1Eps = numberOrNull(fy1Row?.epsAvg);
 
   const actualTrailingRevenue = sumField(incomeQuarters, "revenue");
   const operatingIncome = sumField(incomeQuarters, "operatingIncome");
