@@ -5,7 +5,7 @@
 | Item | Value |
 | --- | --- |
 | Data Dictionary Version | 1.0 |
-| Mapping Version | FMP Mapping 1.0 |
+| Mapping Version | FMP Mapping v1.0 |
 | Verified Date | 2026-08-17 |
 | Verified Companies | PLTR, NVDA, MU |
 | API Version | FMP Stable API (`/stable`) |
@@ -210,6 +210,17 @@ This compact table contains every FMP raw field consumed by production mapping. 
 
 ## Validation Rules
 
+### Sprint 2 Snapshot Traceability Fields
+
+| Endpoint | Raw Field | Internal Field | Formula | Required |
+| --- | --- | --- | --- | --- |
+| Internal Mapping | n/a | `mapping_version` | Constant `FMP Mapping v1.0` | Yes |
+| Income + Cash Flow | `reportedCurrency` | `reported_currency` | Store only one matching currency across both statements | Yes |
+| Internal Validation | source checks | `validation_status` | `warning` when any validation warning exists; otherwise `valid` | Yes |
+| Internal Validation | source checks | `validation_warnings` | JSON list of warning codes | Yes |
+| Cash Flow | `freeCashFlow` | `fmp_reported_free_cash_flow` | Sum latest four fiscal quarters | No |
+| Internal Validation | calculated and reported FCF | `fcf_variance` | Internal FCF − FMP reported FCF | No |
+
 ### Missing and Null Values
 
 - A source value that is absent, null, non-numeric, `NaN`, or infinite normalizes to null for numeric mapping.
@@ -223,13 +234,14 @@ This compact table contains every FMP raw field consumed by production mapping. 
 - Revenue and diluted-EPS YoY comparisons require identical `period` values and a fiscal year exactly one less than the latest fiscal year.
 - If no exact match exists, the prior value and YoY result are null. Revenue Growth then fails the required-field check.
 - FY1 revision comparisons require an identical `estimate_fiscal_date`. A fiscal-year rollover starts a new comparison series.
-- Cash Flow and Income Statement rows are independently date-sorted. The current implementation does not reject a snapshot when the four Cash Flow periods differ from the four Income Statement periods; this is a documented validation gap.
+- The four Income Statement and Cash Flow rows must match by `fiscalYear`, `period`, and `date`; otherwise `validation_status = warning` with `fiscal_period_mismatch`.
+- Analyst Estimate is an annual FY+1 series, not the same quarterly period. It is validated as a future fiscal date; an absent or past date records `analyst_estimate_fiscal_date_invalid`.
 
 ### Currency Mismatch
 
-- FMP returns `reportedCurrency`, but Mapping 1.0 does not consume or persist it.
-- Current production code does not detect currency mismatches between Income Statement and Cash Flow rows.
-- Before expanding beyond the Phase 1 US companies, mapping must validate that all included statement rows share the same currency and must store the verified currency. Until implemented, currency consistency is **not confirmed by Fundamental Flow**.
+- `reportedCurrency` is read from the four Income Statement and four Cash Flow rows.
+- A single matching currency is stored as `reported_currency`.
+- Missing, internally inconsistent, or mismatched statement currencies set `validation_status = warning` and add a specific validation warning.
 
 ### API Failure
 
@@ -252,7 +264,9 @@ This compact table contains every FMP raw field consumed by production mapping. 
 
 - FMP-reported `freeCashFlow` is not the production authority.
 - Production FCF is always `CFO - CAPEX` when calculation succeeds.
-- Mapping 1.0 does not currently fail or downgrade Quality when reported and calculated FCF differ; this is a documented monitoring gap.
+- FMP TTM `freeCashFlow` is stored separately as `fmp_reported_free_cash_flow`.
+- `fcf_variance = Internal FCF - FMP FCF`.
+- A difference greater than `max(USD 1, |FMP FCF| × 0.000001)` records `free_cash_flow_mismatch` and marks the snapshot as a warning.
 
 ## Snapshot Quality Reference
 
@@ -271,9 +285,9 @@ Quality below 80 triggers the AI caution flag. Quality is data completeness, not
 ## Fields Explicitly Outside Mapping 1.0
 
 - `estimatedEpsAvg`: not present in verified responses and not permitted as a fallback.
-- `epsdiluted`: the current parser contains this lowercase compatibility alias, but it was not observed in the verified FMP responses. The approved Mapping 1.0 source field is `epsDiluted`; the alias is an implementation divergence, not a verified mapping.
+- `epsdiluted`: not observed in verified responses and not accepted as a fallback. The approved source field is only `epsDiluted`.
 - NTM EPS and quarterly EPS estimates: not used for Forward EPS.
-- `reportedCurrency`: observed in responses but not yet consumed; currency validation remains a gap.
+- `reportedCurrency`: consumed for cross-statement currency validation and stored as `reported_currency` only when consistent.
 - `numAnalystsEps`: observed in the Analyst Estimates response but not consumed or stored.
 - Legacy nullable DB columns for estimated annual revenue, NTM components, and margin-change placeholders are not part of active FMP Mapping 1.0.
 

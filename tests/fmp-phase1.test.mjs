@@ -17,6 +17,7 @@ test("maps all six raw fields and documents FY1 Forward EPS",()=>{
   assert.match(fmp,/next_fiscal_year_annual_consensus/);
   assert.doesNotMatch(fmp,/estimatedEpsAvg/);
   assert.match(fmp,/numberOrNull\(fy1Row\?\.epsAvg\)/);
+  assert.doesNotMatch(fmp,/epsdiluted/);
 });
 
 test("uses the existing math module for all derived calculations",()=>{
@@ -25,7 +26,6 @@ test("uses the existing math module for all derived calculations",()=>{
 });
 
 test("requires all six production raw fields for complete collection status",()=>{
-  assert.match(fmp,/requiredFieldsAvailable\s*=\s*Object\.values\(required\)\.every/);
-  assert.match(fmp,/requiredFieldsAvailable \? "complete" : "partial"/);
+  assert.match(fmp,/collectionStatus\(required, allFailed\)/);
   assert.doesNotMatch(fmp,/actualCoreAvailable/);
 });

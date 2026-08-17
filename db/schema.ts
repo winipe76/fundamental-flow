@@ -28,7 +28,10 @@ export const apiPayloads = sqliteTable("api_payloads", {
   responseJson: text("response_json"),
   errorMessage: text("error_message"),
   fetchedAt: text("fetched_at").notNull(),
-}, (table) => [index("idx_api_payloads_ticker_date").on(table.ticker, table.snapshotDate)]);
+}, (table) => [
+  index("idx_api_payloads_ticker_date").on(table.ticker, table.snapshotDate),
+  uniqueIndex("idx_api_payloads_ticker_date_endpoint").on(table.ticker, table.snapshotDate, table.endpoint),
+]);
 
 /** Monthly, normalized snapshot. Percent changes are calculated against the prior stored snapshot. */
 export const fundamentalSnapshots = sqliteTable("fundamental_snapshots", {
@@ -80,6 +83,12 @@ export const fundamentalSnapshots = sqliteTable("fundamental_snapshots", {
   snapshotQualityScore: integer("snapshot_quality_score"),
   snapshotQualityChecks: text("snapshot_quality_checks", { mode: "json" }).$type<Record<string, boolean>>(),
   snapshotQualityCaution: integer("snapshot_quality_caution", { mode: "boolean" }),
+  mappingVersion: text("mapping_version"),
+  reportedCurrency: text("reported_currency"),
+  validationStatus: text("validation_status", { enum: ["valid", "warning"] }),
+  validationWarnings: text("validation_warnings", { mode: "json" }).$type<string[]>(),
+  fmpReportedFreeCashFlow: real("fmp_reported_free_cash_flow"),
+  fcfVariance: real("fcf_variance"),
 }, (table) => [
   uniqueIndex("idx_fundamental_snapshots_ticker_date").on(table.ticker, table.snapshotDate),
   index("idx_fundamental_snapshots_date_status").on(table.snapshotDate, table.collectionStatus),
@@ -93,4 +102,5 @@ export const fundamentalClassifications = sqliteTable("fundamental_classificatio
   version: text("version").notNull().default("fundamental-stage-v1"),
   classifiedAt: text("classified_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  sourceSnapshotDate: text("source_snapshot_date"),
 }, (table) => [index("idx_fundamental_classifications_stage_updated").on(table.stage, table.updatedAt)]);

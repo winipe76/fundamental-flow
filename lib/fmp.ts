@@ -1,5 +1,6 @@
 import { compareQuarterEps, percentChange, sumFour } from "@/lib/fundamental-math";
 import { calculateSnapshotQuality, type SnapshotQuality } from "@/lib/snapshot-quality";
+import { collectionStatus, FMP_MAPPING_VERSION, missingRequiredFields, numberOrNull, validateSnapshotSources, type SnapshotValidation } from "@/lib/fmp-validation";
 
 export const TEST_TICKERS = ["PLTR", "NVDA", "MU"] as const;
 const BASE_URL = "https://financialmodelingprep.com/stable";
@@ -41,12 +42,10 @@ export interface NormalizedSnapshot {
   missingFields: string[];
   collectionStatus: "complete" | "partial" | "failed";
   snapshotQuality: SnapshotQuality;
+  mappingVersion: string;
+  validation: SnapshotValidation;
 }
-
-function numberOrNull(value: unknown): number | null {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
+export { numberOrNull } from "@/lib/fmp-validation";
 
 async function request(endpoint: string, apiKey: string): Promise<RawResult> {
   const controller = new AbortController();
@@ -92,8 +91,8 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     ? incomeQuarters.find((row) => String(row.fiscalYear) === String(Number(latestFiscalYear) - 1) && row.period === latestFiscalPeriod) ?? null
     : null;
 
-  const latestQuarterEps = numberOrNull(latest?.epsDiluted ?? latest?.epsdiluted);
-  const priorYearQuarterEps = numberOrNull(prior?.epsDiluted ?? prior?.epsdiluted);
+  const latestQuarterEps = numberOrNull(latest?.epsDiluted);
+  const priorYearQuarterEps = numberOrNull(prior?.epsDiluted);
   const epsComparison = compareQuarterEps(latestQuarterEps, priorYearQuarterEps);
   const latestQuarterRevenue = numberOrNull(latest?.revenue);
   const priorYearQuarterRevenue = numberOrNull(prior?.revenue);
@@ -116,9 +115,10 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const fcfMargin = actualTrailingRevenue && freeCashFlow !== null ? freeCashFlow / actualTrailingRevenue : null;
 
   const required = { revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin, operatingCashFlow, capitalExpenditure };
-  const missingFields = Object.entries(required).filter(([, value]) => value === null).map(([key]) => key);
-  const requiredFieldsAvailable = Object.values(required).every((value) => value !== null);
+  const missingFields = missingRequiredFields(required);
   const allFailed = [annualEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
+  const internalFcf = operatingCashFlow !== null && capitalExpenditure !== null ? operatingCashFlow - capitalExpenditure : null;
+  const validation = validateSnapshotSources(incomeQuarters, cashflowQuarters, fy1FiscalDate, snapshotDate, internalFcf, freeCashFlow);
   const snapshotQuality = calculateSnapshotQuality({
     revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin,
     operatingCashFlow, capitalExpenditure, fiscalYear: latestFiscalYear, fiscalPeriod: latestFiscalPeriod,
@@ -134,8 +134,10 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     dataSource: "FMP stable: analyst-estimates (annual), income-statement (quarter), cash-flow-statement (quarter)",
     epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: nearest future fiscal-year annual analyst consensus epsAvg (FY1)",
     missingFields,
-    collectionStatus: allFailed ? "failed" : requiredFieldsAvailable ? "complete" : "partial",
+    collectionStatus: collectionStatus(required, allFailed),
     snapshotQuality,
+    mappingVersion: FMP_MAPPING_VERSION,
+    validation,
   };
   return { raw: [annualEstimates, quarterlyIncome, quarterlyCashflow], normalized };
 }

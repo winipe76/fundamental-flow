@@ -40,14 +40,21 @@ export async function GET(request: Request) {
     `).bind(...TEST_TICKERS).all();
     const latestSuccessful = await runtime.DB.prepare(`
       SELECT MAX(collected_at) collected_at FROM fundamental_snapshots
-      WHERE ticker IN (${placeholders}) AND latest_quarter_eps IS NOT NULL AND latest_quarter_revenue IS NOT NULL
+      WHERE ticker IN (${placeholders})
+        AND actual_trailing_revenue IS NOT NULL AND revenue_yoy_pct IS NOT NULL
+        AND annual_fwd_eps_estimate IS NOT NULL AND operating_margin IS NOT NULL
+        AND operating_cash_flow IS NOT NULL AND capital_expenditure IS NOT NULL
+        AND calculation_success=1
     `).bind(...TEST_TICKERS).first<{ collected_at: string | null }>();
+    const classifications = await runtime.DB.prepare(`SELECT * FROM fundamental_classifications WHERE ticker IN (${placeholders}) ORDER BY ticker`)
+      .bind(...TEST_TICKERS).all();
     const rows = latest.results;
     const hasPartial = rows.some((row) => row.collection_status === "partial");
     return json({
       configured: Boolean(runtime.FMP_API_KEY), status: runtime.FMP_API_KEY ? (hasPartial ? "partial" : "connected") : "key_missing",
       tickers: TEST_TICKERS, lastUpdated: rows[0]?.collected_at ?? null,
-      lastSuccessfulUpdate: latestSuccessful?.collected_at ?? null, snapshots: rows, history: [], validations: rows.map(row=>validation(row)),
+      lastSuccessfulUpdate: latestSuccessful?.collected_at ?? null, snapshots: rows, history: [], classifications: classifications.results,
+      validations: rows.map(row=>validation(row)),
     });
   } catch (error) {
     return json({ configured: Boolean(runtime.FMP_API_KEY), status: "database_error", snapshots: [], history: [], error: error instanceof Error ? error.message : "Database error" }, 500);
