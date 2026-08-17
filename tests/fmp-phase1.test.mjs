@@ -23,3 +23,9 @@ test("uses the existing math module for all derived calculations",()=>{
   for(const field of ["freeCashFlow","freeCashFlowMargin","cfoMargin","capexIntensity","classicRule40","operatingRule40","cashRule40"]) assert.match(math,new RegExp(field));
   assert.match(store,/calculateDerived/);
 });
+
+test("requires all six production raw fields for complete collection status",()=>{
+  assert.match(fmp,/requiredFieldsAvailable\s*=\s*Object\.values\(required\)\.every/);
+  assert.match(fmp,/requiredFieldsAvailable \? "complete" : "partial"/);
+  assert.doesNotMatch(fmp,/actualCoreAvailable/);
+});

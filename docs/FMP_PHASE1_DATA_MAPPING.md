@@ -77,6 +77,7 @@ The existing Calculation Engine in `lib/fundamental-math.ts` is the calculation 
 - TTM values require four valid quarterly values. A missing quarter is not estimated.
 - Revenue Growth requires the exact same fiscal quarter from the prior fiscal year.
 - Missing any of the six production raw fields makes `calculationSuccess` false.
+- `collectionStatus` is `complete` only when all six production raw fields are present; otherwise it is `partial` unless every FMP request failed.
 - Missing monthly comparison data does not fail the raw snapshot. It leaves that monthly-change metric unavailable.
 
 ## Data Lineage

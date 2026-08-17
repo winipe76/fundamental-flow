@@ -115,7 +115,7 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
 
   const required = { revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin, operatingCashFlow, capitalExpenditure };
   const missingFields = Object.entries(required).filter(([, value]) => value === null).map(([key]) => key);
-  const actualCoreAvailable = [latestQuarterEps, priorYearQuarterEps, latestQuarterRevenue, priorYearQuarterRevenue, actualTrailingRevenue, operatingMargin, fcfMargin].every((value) => value !== null);
+  const requiredFieldsAvailable = Object.values(required).every((value) => value !== null);
   const allFailed = [annualEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
 
   const normalized: NormalizedSnapshot = {
@@ -127,7 +127,7 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     dataSource: "FMP stable: analyst-estimates (annual), income-statement (quarter), cash-flow-statement (quarter)",
     epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: nearest future fiscal-year annual analyst consensus epsAvg (FY1)",
     missingFields,
-    collectionStatus: allFailed ? "failed" : actualCoreAvailable && fy1Eps !== null ? "complete" : "partial",
+    collectionStatus: allFailed ? "failed" : requiredFieldsAvailable ? "complete" : "partial",
   };
   return { raw: [annualEstimates, quarterlyIncome, quarterlyCashflow], normalized };
 }
