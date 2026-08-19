@@ -21,6 +21,14 @@ test("offers add and remove actions for company presentations", () => {
   assert.match(page, /companies\.map[\s\S]*CandidateActions ticker=\{c\.ticker\}/);
 });
 
+test("shows one toggle button from the actual Buy Engine candidate state", () => {
+  assert.match(page, /fetch\(`\/api\/buy-engine\/candidates\?ticker=/);
+  assert.match(page, /setAdded\(payload\.added===true\)/);
+  assert.match(page, /Added · Remove from Buy Engine/);
+  assert.match(page, /aria-pressed=\{added\}/);
+  assert.doesNotMatch(page, /<button[^>]*>Remove from Buy Engine<\/button>/);
+});
+
 test("transfers stored Fundamental metrics without ranking or valuation", () => {
   assert.doesNotMatch(candidate, /rankSnapshots|fundamental_score|ranking_component_scores|ranking_position/);
   for (const field of ["ticker", "company_name", "fundamental_stage", "metrics", "source_snapshot_date"]) assert.ok(candidate.includes(field), field);

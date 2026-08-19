@@ -14,12 +14,17 @@ async function snapshotFromRequest(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!runtime.DB) return json({ status: "database_unavailable" }, 503);
+  if (!runtime.BUY_ENGINE_API_URL || !runtime.BUY_ENGINE_SYNC_TOKEN) return json({ status: "integration_not_configured", added: false }, 503);
   try {
-    return json({ status: "ready", snapshot: await snapshotFromRequest(request) });
+    const ticker = new URL(request.url).searchParams.get("ticker") ?? "";
+    const response = await fetch(`${runtime.BUY_ENGINE_API_URL.replace(/\/$/, "")}/api/candidates/sync?ticker=${encodeURIComponent(ticker)}`, {
+      headers: { "Authorization": `Bearer ${runtime.BUY_ENGINE_SYNC_TOKEN}` }, cache: "no-store", signal: AbortSignal.timeout(12_000),
+    });
+    const result = await response.json() as Record<string, unknown>;
+    if (!response.ok) return json(result, response.status);
+    return json({ status: "connected", ticker, added: result.added === true });
   } catch (error) {
-    if (error instanceof CandidateSnapshotError) return json({ status: "snapshot_unavailable", error: error.message }, error.status);
-    return json({ status: "invalid_request", error: error instanceof Error ? error.message : "Invalid request" }, 400);
+    return json({ status: "status_unavailable", added: false, error: error instanceof Error ? error.message : "Status unavailable" }, 502);
   }
 }
 
