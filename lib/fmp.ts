@@ -1,6 +1,7 @@
 import { compareQuarterEps, percentChange, sumFour } from "@/lib/fundamental-math";
 import { calculateSnapshotQuality, type SnapshotQuality } from "@/lib/snapshot-quality";
 import { collectionStatus, FMP_MAPPING_VERSION, missingRequiredFields, numberOrNull, validateSnapshotSources, type SnapshotValidation } from "@/lib/fmp-validation";
+import { selectAnnualEstimatesByFiscalYear } from "@/lib/forward-eps";
 
 export const TEST_TICKERS = ["PLTR", "NVDA", "MU"] as const;
 const BASE_URL = "https://financialmodelingprep.com/stable";
@@ -27,8 +28,10 @@ export interface NormalizedSnapshot {
   latestQuarterRevenue: number | null;
   priorYearQuarterRevenue: number | null;
   revenueYoyPct: number | null;
-  fy1FiscalDate: string | null;
-  fy1Eps: number | null;
+  currentFyFiscalDate: string | null;
+  currentFyEps: number | null;
+  nextFyFiscalDate: string | null;
+  nextFyEps: number | null;
   actualTrailingRevenue: number | null;
   operatingIncome: number | null;
   operatingMargin: number | null;
@@ -98,11 +101,11 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const priorYearQuarterRevenue = numberOrNull(prior?.revenue);
   const revenueYoyPct = percentChange(latestQuarterRevenue, priorYearQuarterRevenue);
 
-  const fy1Row = rows(annualEstimates)
-    .filter((row) => typeof row.date === "string" && row.date >= snapshotDate)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0] ?? null;
-  const fy1FiscalDate = typeof fy1Row?.date === "string" ? fy1Row.date : null;
-  const fy1Eps = numberOrNull(fy1Row?.epsAvg);
+  const fiscalYearEstimates = selectAnnualEstimatesByFiscalYear(rows(annualEstimates), latestFiscalYear);
+  const currentFyFiscalDate = typeof fiscalYearEstimates.current?.date === "string" ? fiscalYearEstimates.current.date : null;
+  const currentFyEps = numberOrNull(fiscalYearEstimates.current?.epsAvg);
+  const nextFyFiscalDate = typeof fiscalYearEstimates.next?.date === "string" ? fiscalYearEstimates.next.date : null;
+  const nextFyEps = numberOrNull(fiscalYearEstimates.next?.epsAvg);
 
   const actualTrailingRevenue = sumField(incomeQuarters, "revenue");
   const operatingIncome = sumField(incomeQuarters, "operatingIncome");
@@ -114,13 +117,13 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
   const operatingMargin = actualTrailingRevenue && operatingIncome !== null ? operatingIncome / actualTrailingRevenue : null;
   const fcfMargin = actualTrailingRevenue && freeCashFlow !== null ? freeCashFlow / actualTrailingRevenue : null;
 
-  const required = { revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin, operatingCashFlow, capitalExpenditure };
+  const required = { revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: nextFyEps, operatingMargin, operatingCashFlow, capitalExpenditure };
   const missingFields = missingRequiredFields(required);
   const allFailed = [annualEstimates, quarterlyIncome, quarterlyCashflow].every((result) => result.error);
   const internalFcf = operatingCashFlow !== null && capitalExpenditure !== null ? operatingCashFlow - capitalExpenditure : null;
-  const validation = validateSnapshotSources(incomeQuarters, cashflowQuarters, fy1FiscalDate, snapshotDate, internalFcf, freeCashFlow);
+  const validation = validateSnapshotSources(incomeQuarters, cashflowQuarters, nextFyFiscalDate, snapshotDate, internalFcf, freeCashFlow);
   const snapshotQuality = calculateSnapshotQuality({
-    revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: fy1Eps, operatingMargin,
+    revenue: actualTrailingRevenue, revenueGrowth: revenueYoyPct, forwardEps: nextFyEps, operatingMargin,
     operatingCashFlow, capitalExpenditure, fiscalYear: latestFiscalYear, fiscalPeriod: latestFiscalPeriod,
     fiscalPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
   });
@@ -129,10 +132,11 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     ticker, latestFiscalYear, latestFiscalPeriod, latestPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
     latestQuarterEps, priorYearQuarterEps, epsYoyPct: epsComparison.yoyPct, epsYoyStatus: epsComparison.status,
     epsChangeAmount: epsComparison.changeAmount, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct,
-    fy1FiscalDate, fy1Eps, actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin, operatingCashFlow, capitalExpenditure,
+    currentFyFiscalDate, currentFyEps, nextFyFiscalDate, nextFyEps,
+    actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin, operatingCashFlow, capitalExpenditure,
     forwardEpsBasis: "next_fiscal_year_annual_consensus",
     dataSource: "FMP stable: analyst-estimates (annual), income-statement (quarter), cash-flow-statement (quarter)",
-    epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: nearest future fiscal-year annual analyst consensus epsAvg (FY1)",
+    epsDefinition: "Actual: FMP standardized GAAP diluted EPS (epsDiluted), exact same fiscal quarter YoY. Forward: next fiscal-year annual analyst consensus epsAvg",
     missingFields,
     collectionStatus: collectionStatus(required, allFailed),
     snapshotQuality,

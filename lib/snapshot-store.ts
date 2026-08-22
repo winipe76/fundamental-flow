@@ -1,5 +1,6 @@
 import { collectTicker } from "@/lib/fmp";
-import { calculateDerived, percentChange, type RawFundamentals } from "@/lib/fundamental-math";
+import { calculateDerived, type RawFundamentals } from "@/lib/fundamental-math";
+import { calculateNextFyRevisions } from "@/lib/forward-eps";
 import { classifySnapshot, type PreviousClassification, type ScreeningStage } from "@/lib/screening-engine";
 
 function dbNumber(value: unknown): number | null {
@@ -15,31 +16,36 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
       http_status=excluded.http_status,response_json=excluded.response_json,error_message=excluded.error_message,fetched_at=excluded.fetched_at`
     ).bind(ticker, snapshotDate, raw.endpoint, raw.status, JSON.stringify(raw.data), raw.error, collectedAt).run();
   }
-  const oneMonth = await db.prepare(`SELECT annual_fwd_eps_estimate FROM fundamental_snapshots
+  const oneMonth = await db.prepare(`SELECT next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
     WHERE ticker=? AND snapshot_date>=date(?,'start of month','-1 month')
-      AND snapshot_date<date(?,'start of month') AND annual_fwd_eps_estimate IS NOT NULL
-      AND estimate_fiscal_date=?
+      AND snapshot_date<date(?,'start of month') AND next_fy_eps IS NOT NULL
+      AND next_fy_estimate_fiscal_date=?
     ORDER BY snapshot_date DESC LIMIT 1`
-  ).bind(ticker, snapshotDate, snapshotDate, collected.normalized.fy1FiscalDate).first<Record<string, unknown>>();
-  const threeMonths = await db.prepare(`SELECT annual_fwd_eps_estimate FROM fundamental_snapshots
+  ).bind(ticker, snapshotDate, snapshotDate, collected.normalized.nextFyFiscalDate).first<Record<string, unknown>>();
+  const threeMonths = await db.prepare(`SELECT next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
     WHERE ticker=? AND snapshot_date>=date(?,'start of month','-3 months')
-      AND snapshot_date<date(?,'start of month','-2 months') AND annual_fwd_eps_estimate IS NOT NULL
-      AND estimate_fiscal_date=?
+      AND snapshot_date<date(?,'start of month','-2 months') AND next_fy_eps IS NOT NULL
+      AND next_fy_estimate_fiscal_date=?
     ORDER BY snapshot_date DESC LIMIT 1`
-  ).bind(ticker, snapshotDate, snapshotDate, collected.normalized.fy1FiscalDate).first<Record<string, unknown>>();
+  ).bind(ticker, snapshotDate, snapshotDate, collected.normalized.nextFyFiscalDate).first<Record<string, unknown>>();
   const value = collected.normalized;
-  const fy1EpsChange1mPct = percentChange(value.fy1Eps, dbNumber(oneMonth?.annual_fwd_eps_estimate));
-  const fy1EpsChange3mPct = percentChange(value.fy1Eps, dbNumber(threeMonths?.annual_fwd_eps_estimate));
+  const revisions = calculateNextFyRevisions(value.nextFyEps, value.nextFyFiscalDate,
+    oneMonth ? { fiscalDate: typeof oneMonth.next_fy_estimate_fiscal_date === "string" ? oneMonth.next_fy_estimate_fiscal_date : null, eps: dbNumber(oneMonth.next_fy_eps) } : null,
+    threeMonths ? { fiscalDate: typeof threeMonths.next_fy_estimate_fiscal_date === "string" ? threeMonths.next_fy_estimate_fiscal_date : null, eps: dbNumber(threeMonths.next_fy_eps) } : null);
+  const nextFyRevision1m = revisions.oneMonth;
+  const nextFyRevision3m = revisions.threeMonths;
 
   await db.prepare(`INSERT INTO fundamental_snapshots (
-    ticker,snapshot_date,estimate_fiscal_date,eps_definition,annual_fwd_eps_estimate,estimated_annual_revenue,
+    ticker,snapshot_date,estimate_fiscal_date,eps_definition,annual_fwd_eps_estimate,
+    current_fy_estimate_fiscal_date,current_fy_eps,next_fy_estimate_fiscal_date,next_fy_eps,next_fy_revision_1m,next_fy_revision_3m,
+    estimated_annual_revenue,
     actual_trailing_revenue,operating_income,operating_margin,free_cash_flow,fcf_margin,
     fwd_eps_change_pct,estimated_revenue_change_pct,operating_margin_change_pp,fcf_margin_change_pp,
     missing_fields,collection_status,collected_at,latest_fiscal_year,latest_fiscal_period,latest_period_end,
     latest_quarter_eps,prior_year_quarter_eps,eps_yoy_pct,eps_yoy_status,eps_change_amount,
     latest_quarter_revenue,prior_year_quarter_revenue,revenue_yoy_pct,ntm_eps,ntm_components,
     ntm_eps_change_1m_pct,ntm_eps_change_3m_pct,fy1_eps_change_3m_pct
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   ON CONFLICT(ticker,snapshot_date) DO UPDATE SET
     eps_definition=excluded.eps_definition,actual_trailing_revenue=excluded.actual_trailing_revenue,
     operating_income=excluded.operating_income,operating_margin=excluded.operating_margin,free_cash_flow=excluded.free_cash_flow,
@@ -51,21 +57,26 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     latest_quarter_revenue=excluded.latest_quarter_revenue,prior_year_quarter_revenue=excluded.prior_year_quarter_revenue,
     revenue_yoy_pct=excluded.revenue_yoy_pct,estimate_fiscal_date=excluded.estimate_fiscal_date,
     annual_fwd_eps_estimate=excluded.annual_fwd_eps_estimate,fwd_eps_change_pct=excluded.fwd_eps_change_pct,
+    current_fy_estimate_fiscal_date=excluded.current_fy_estimate_fiscal_date,current_fy_eps=excluded.current_fy_eps,
+    next_fy_estimate_fiscal_date=excluded.next_fy_estimate_fiscal_date,next_fy_eps=excluded.next_fy_eps,
+    next_fy_revision_1m=excluded.next_fy_revision_1m,next_fy_revision_3m=excluded.next_fy_revision_3m,
     fy1_eps_change_3m_pct=excluded.fy1_eps_change_3m_pct,ntm_eps=NULL,ntm_components=NULL,
     ntm_eps_change_1m_pct=NULL,ntm_eps_change_3m_pct=NULL`
   ).bind(
-    ticker,snapshotDate,value.fy1FiscalDate,value.epsDefinition,value.fy1Eps,null,value.actualTrailingRevenue,value.operatingIncome,value.operatingMargin,
-    value.freeCashFlow,value.fcfMargin,fy1EpsChange1mPct,null,null,null,JSON.stringify(value.missingFields),value.collectionStatus,collectedAt,
+    ticker,snapshotDate,value.nextFyFiscalDate,value.epsDefinition,value.nextFyEps,
+    value.currentFyFiscalDate,value.currentFyEps,value.nextFyFiscalDate,value.nextFyEps,nextFyRevision1m,nextFyRevision3m,
+    null,value.actualTrailingRevenue,value.operatingIncome,value.operatingMargin,
+    value.freeCashFlow,value.fcfMargin,nextFyRevision1m,null,null,null,JSON.stringify(value.missingFields),value.collectionStatus,collectedAt,
     value.latestFiscalYear,value.latestFiscalPeriod,value.latestPeriodEnd,value.latestQuarterEps,value.priorYearQuarterEps,
     value.epsYoyPct,value.epsYoyStatus,value.epsChangeAmount,value.latestQuarterRevenue,value.priorYearQuarterRevenue,
-    value.revenueYoyPct,null,null,null,null,fy1EpsChange3mPct
+    value.revenueYoyPct,null,null,null,null,nextFyRevision3m
   ).run();
-  const rawValues = [value.actualTrailingRevenue, value.revenueYoyPct, value.fy1Eps, value.operatingMargin, value.operatingCashFlow, value.capitalExpenditure];
+  const rawValues = [value.actualTrailingRevenue, value.revenueYoyPct, value.nextFyEps, value.operatingMargin, value.operatingCashFlow, value.capitalExpenditure];
   const calculationSuccess = rawValues.every((item): item is number => typeof item === "number" && Number.isFinite(item));
   const derived = calculationSuccess ? calculateDerived({
     revenue: value.actualTrailingRevenue!,
     revenueGrowth: value.revenueYoyPct!,
-    forwardEps: value.fy1Eps!,
+    forwardEps: value.nextFyEps!,
     operatingMargin: value.operatingMargin! * 100,
     operatingCashFlow: value.operatingCashFlow!,
     capitalExpenditure: value.capitalExpenditure!,
@@ -99,7 +110,7 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     revenueGrowth: value.revenueYoyPct,
     classicRule40: derived?.classicRule40 ?? null,
     cashRule40: derived?.cashRule40 ?? null,
-    forwardEpsChangePct: fy1EpsChange1mPct,
+    forwardEpsChangePct: nextFyRevision1m,
   }, previous);
   await db.prepare(`INSERT INTO fundamental_classifications
     (ticker,stage,reason,version,classified_at,updated_at,source_snapshot_date) VALUES (?,?,?,?,?,?,?)
@@ -107,5 +118,5 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     updated_at=excluded.updated_at,source_snapshot_date=excluded.source_snapshot_date`
   ).bind(ticker,classification.stage,classification.reason,"fundamental-stage-v2",collectedAt,collectedAt,snapshotDate).run();
   return { ...value, freeCashFlow: derived?.freeCashFlow ?? null, fcfMargin: derived === null ? null : derived.freeCashFlowMargin / 100,
-    derived, calculationSuccess, fy1EpsChange1mPct, fy1EpsChange3mPct, snapshotDate, classification };
+    derived, calculationSuccess, nextFyRevision1m, nextFyRevision3m, snapshotDate, classification };
 }

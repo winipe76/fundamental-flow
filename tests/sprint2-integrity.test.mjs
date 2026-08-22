@@ -35,5 +35,5 @@ test("ranking refresh performs one update request", () => {
 
 test("latest successful update requires six fields and calculation success", () => {
   const route = fs.readFileSync("app/api/fundamentals/route.ts", "utf8");
-  for (const field of ["actual_trailing_revenue", "revenue_yoy_pct", "annual_fwd_eps_estimate", "operating_margin", "operating_cash_flow", "capital_expenditure", "calculation_success=1"]) assert.ok(route.includes(field), field);
+  for (const field of ["actual_trailing_revenue", "revenue_yoy_pct", "next_fy_eps", "operating_margin", "operating_cash_flow", "capital_expenditure", "calculation_success=1"]) assert.ok(route.includes(field), field);
 });

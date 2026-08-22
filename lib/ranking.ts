@@ -3,8 +3,8 @@ export type RankingSnapshot = {
   eps_yoy_pct?: number | null;
   eps_yoy_status?: string | null;
   revenue_yoy_pct?: number | null;
-  fwd_eps_change_pct?: number | null;
-  fy1_eps_change_3m_pct?: number | null;
+  next_fy_revision_1m?: number | null;
+  next_fy_revision_3m?: number | null;
   [key: string]: unknown;
 };
 
@@ -33,8 +33,8 @@ function epsScore(row: RankingSnapshot, numericValues: number[]) {
 export function rankSnapshots(rows: RankingSnapshot[]) {
   const eligible = rows.filter((row) => finite(row.revenue_yoy_pct) && row.eps_yoy_status !== "unavailable");
   const coverage = eligible.length || 1;
-  const oneMonthCoverage = eligible.filter((row) => finite(row.fwd_eps_change_pct)).length / coverage;
-  const threeMonthCoverage = eligible.filter((row) => finite(row.fy1_eps_change_3m_pct)).length / coverage;
+  const oneMonthCoverage = eligible.filter((row) => finite(row.next_fy_revision_1m)).length / coverage;
+  const threeMonthCoverage = eligible.filter((row) => finite(row.next_fy_revision_3m)).length / coverage;
   const stage: RankingStage = threeMonthCoverage >= 0.6 ? "three_month" : oneMonthCoverage >= 0.6 ? "one_month" : "actual_only";
   const weights = stage === "three_month"
     ? { eps: 0.3, revenue: 0.3, oneMonth: 0.2, threeMonth: 0.2 }
@@ -43,19 +43,19 @@ export function rankSnapshots(rows: RankingSnapshot[]) {
       : { eps: 0.5, revenue: 0.5, oneMonth: 0, threeMonth: 0 };
   const epsValues = eligible.filter((row) => row.eps_yoy_status === "growth" && finite(row.eps_yoy_pct)).map((row) => row.eps_yoy_pct as number);
   const revenueValues = eligible.map((row) => row.revenue_yoy_pct as number);
-  const oneMonthValues = eligible.filter((row) => finite(row.fwd_eps_change_pct)).map((row) => row.fwd_eps_change_pct as number);
-  const threeMonthValues = eligible.filter((row) => finite(row.fy1_eps_change_3m_pct)).map((row) => row.fy1_eps_change_3m_pct as number);
+  const oneMonthValues = eligible.filter((row) => finite(row.next_fy_revision_1m)).map((row) => row.next_fy_revision_1m as number);
+  const threeMonthValues = eligible.filter((row) => finite(row.next_fy_revision_3m)).map((row) => row.next_fy_revision_3m as number);
 
   return eligible.map((row) => {
     const eps = epsScore(row, epsValues);
     const revenue = percentile(revenueValues, row.revenue_yoy_pct as number);
-    const oneMonth = finite(row.fwd_eps_change_pct) ? percentile(oneMonthValues, row.fwd_eps_change_pct) : null;
-    const threeMonth = finite(row.fy1_eps_change_3m_pct) ? percentile(threeMonthValues, row.fy1_eps_change_3m_pct) : null;
+    const oneMonth = finite(row.next_fy_revision_1m) ? percentile(oneMonthValues, row.next_fy_revision_1m) : null;
+    const threeMonth = finite(row.next_fy_revision_3m) ? percentile(threeMonthValues, row.next_fy_revision_3m) : null;
     const requiredForwardAvailable = stage === "actual_only" || (oneMonth !== null && (stage !== "three_month" || threeMonth !== null));
     const score = eps !== null && requiredForwardAvailable
       ? eps * weights.eps + revenue * weights.revenue + (oneMonth ?? 0) * weights.oneMonth + (threeMonth ?? 0) * weights.threeMonth
       : null;
-    return { ...row, score, component_scores: { eps, revenue, fy1_1m: oneMonth, fy1_3m: threeMonth } };
+    return { ...row, score, component_scores: { eps, revenue, next_fy_1m: oneMonth, next_fy_3m: threeMonth } };
   }).filter((row) => row.score !== null)
     .sort((a, b) => (b.score as number) - (a.score as number))
     .map((row, index) => ({ ...row, rank: index + 1 }));

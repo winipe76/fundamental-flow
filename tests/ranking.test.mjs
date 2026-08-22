@@ -10,9 +10,9 @@ test("contains exactly 100 unique Nasdaq companies",()=>{
 
 test("ranks initial snapshots using actual EPS and revenue growth",()=>{
   const ranked=rankSnapshots([
-    {ticker:"A",eps_yoy_status:"growth",eps_yoy_pct:40,revenue_yoy_pct:30,fwd_eps_change_pct:null,fy1_eps_change_3m_pct:null},
-    {ticker:"B",eps_yoy_status:"growth",eps_yoy_pct:20,revenue_yoy_pct:10,fwd_eps_change_pct:null,fy1_eps_change_3m_pct:null},
-    {ticker:"C",eps_yoy_status:"growth",eps_yoy_pct:10,revenue_yoy_pct:5,fwd_eps_change_pct:null,fy1_eps_change_3m_pct:null},
+    {ticker:"A",eps_yoy_status:"growth",eps_yoy_pct:40,revenue_yoy_pct:30,next_fy_revision_1m:null,next_fy_revision_3m:null},
+    {ticker:"B",eps_yoy_status:"growth",eps_yoy_pct:20,revenue_yoy_pct:10,next_fy_revision_1m:null,next_fy_revision_3m:null},
+    {ticker:"C",eps_yoy_status:"growth",eps_yoy_pct:10,revenue_yoy_pct:5,next_fy_revision_1m:null,next_fy_revision_3m:null},
   ]);
   assert.equal(ranked[0].ticker,"A");
   assert.equal(ranked[0].rank,1);

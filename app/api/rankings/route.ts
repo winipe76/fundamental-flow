@@ -37,9 +37,9 @@ export async function GET() {
       const value = typeof row.collected_at === "string" ? row.collected_at : null;
       return value && (!latestDate || value > latestDate) ? value : latestDate;
     }, null);
-    const stage = ranked[0] && "fwd_eps_change_pct" in ranked[0]
-      ? (ranked.every((row) => typeof row.fy1_eps_change_3m_pct === "number") ? "three_month"
-        : ranked.every((row) => typeof row.fwd_eps_change_pct === "number") ? "one_month" : "actual_only")
+    const stage = ranked[0] && "next_fy_revision_1m" in ranked[0]
+      ? (ranked.every((row) => typeof row.next_fy_revision_3m === "number") ? "three_month"
+        : ranked.every((row) => typeof row.next_fy_revision_1m === "number") ? "one_month" : "actual_only")
       : "actual_only";
     return json({
       status: runtime.FMP_API_KEY ? "connected" : "key_missing",

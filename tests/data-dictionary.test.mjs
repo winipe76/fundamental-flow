@@ -5,7 +5,7 @@ import fs from "node:fs";
 const dictionary=fs.readFileSync("docs/FMP_DATA_DICTIONARY.md","utf8");
 
 test("data dictionary identifies its verified version and companies",()=>{
-  for(const value of ["Data Dictionary Version | 1.0","2026-08-17","PLTR, NVDA, MU","FMP Stable API"]) assert.match(dictionary,new RegExp(value.replaceAll(".","\\.")));
+  for(const value of ["Data Dictionary Version | 1.1","2026-08-22","PLTR, NVDA, MU","FMP Stable API"]) assert.match(dictionary,new RegExp(value.replaceAll(".","\\.")));
 });
 
 test("data dictionary covers every consumed FMP source field",()=>{

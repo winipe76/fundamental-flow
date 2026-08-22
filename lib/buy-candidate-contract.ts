@@ -33,7 +33,8 @@ export function parseFundamentalStage(value: unknown): FundamentalStage {
 export function selectFundamentalMetrics(row: Record<string, unknown>) {
   const fields = [
     "latest_quarter_eps", "eps_yoy_pct", "eps_yoy_status", "latest_quarter_revenue", "revenue_yoy_pct",
-    "annual_fwd_eps_estimate", "fwd_eps_change_pct", "fy1_eps_change_3m_pct",
+    "current_fy_eps", "current_fy_estimate_fiscal_date", "next_fy_eps", "next_fy_estimate_fiscal_date",
+    "next_fy_revision_1m", "next_fy_revision_3m",
     "actual_trailing_revenue", "operating_income", "operating_margin", "free_cash_flow", "fcf_margin",
     "operating_cash_flow", "capital_expenditure", "cfo_margin", "capex_intensity",
     "classic_rule_40", "operating_rule_40", "cash_rule_40", "snapshot_quality_score",

@@ -45,7 +45,7 @@ Base URL: `https://financialmodelingprep.com`
 | `capitalExpenditure` | Cash Flow | number | No | Quarterly CAPEX. FMP reports cash outflow as negative; the TTM sum is converted to a positive investment amount. |
 | `freeCashFlow` | Cash Flow | number | Yes | FMP-reported quarterly FCF. Retained for source comparison; production FCF is recalculated by the Calculation Engine. |
 | `date` | Analyst Estimates | date string | No | Estimate fiscal-year end date. Selects the nearest future annual estimate and populates `estimateFiscalDate`. |
-| `epsAvg` | Analyst Estimates | number | No | Consensus average EPS for the selected future fiscal year. Mapped to FY1 Forward EPS. |
+| `epsAvg` | Analyst Estimates | number | No | Annual consensus EPS. Current FY is supporting data; exact Next FY is the Primary Forward EPS. |
 | `numAnalystsEps` | Analyst Estimates | number | Yes | Number of analysts contributing to EPS estimates. Present but not currently stored or calculated. |
 
 ## Production Raw Data Mapping
@@ -54,7 +54,7 @@ Base URL: `https://financialmodelingprep.com`
 | --- | --- | --- | --- | --- | --- |
 | Revenue | Income Statement `revenue` | Latest four fiscal quarters | `Q0 + Q-1 + Q-2 + Q-3` | `actual_trailing_revenue` | Yes |
 | Revenue Growth | Income Statement `revenue`, `fiscalYear`, `period` | Latest quarter versus exact prior-year fiscal quarter | `(current / priorYear - 1) × 100` | `revenue_yoy_pct` | Yes |
-| Forward EPS | Analyst Estimates `epsAvg`, `date` | Nearest estimate date on or after snapshot date | Select nearest future annual `epsAvg` | `annual_fwd_eps_estimate` | Yes |
+| Forward EPS | Analyst Estimates `epsAvg`, `date` plus Income Statement `fiscalYear` | Exact annual row whose date year equals current fiscal year + 1 | Select exact Next Fiscal Year annual `epsAvg`; no positional fallback | `next_fy_eps` | Yes |
 | Operating Margin | Income Statement `operatingIncome`, `revenue` | Latest four fiscal quarters | `TTM operatingIncome / TTM revenue` | `operating_margin` | Yes |
 | Operating Cash Flow | Cash Flow `operatingCashFlow` | Latest four fiscal quarters | `Q0 + Q-1 + Q-2 + Q-3` | `operating_cash_flow` | Yes |
 | CAPEX | Cash Flow `capitalExpenditure` | Latest four fiscal quarters | `abs(Q0 + Q-1 + Q-2 + Q-3)` | `capital_expenditure` | Yes |
@@ -63,7 +63,7 @@ Base URL: `https://financialmodelingprep.com`
 
 `Forward EPS` means the nearest future fiscal-year annual analyst consensus `epsAvg`.
 
-- Basis: FY1 annual consensus
+- Basis: exact Next Fiscal Year annual consensus; Current FY is stored separately
 - Not NTM EPS
 - Not a quarterly estimate
 - Estimate date: stored in `estimate_fiscal_date`
@@ -111,7 +111,7 @@ Snapshot Quality is a 0–100 data-completeness score. It does not evaluate whet
 | --- | ---: | --- |
 | Revenue | 15 | Finite TTM Revenue |
 | Revenue Growth | 15 | Finite exact-quarter YoY growth |
-| Forward EPS | 14 | Finite FY1 annual `epsAvg` |
+| Forward EPS | 14 | Finite exact Next Fiscal Year annual `epsAvg` |
 | Operating Margin | 14 | Finite TTM Operating Margin |
 | CFO | 28 | Finite TTM Operating Cash Flow |
 | CAPEX | 10 | Finite normalized TTM CAPEX |

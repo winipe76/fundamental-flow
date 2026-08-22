@@ -12,11 +12,11 @@ test("limits FMP Phase 1 collection in the requested order",()=>{
   assert.match(rankings,/const tickers = \[\.\.\.TEST_TICKERS\]/);
 });
 
-test("maps all six raw fields and documents FY1 Forward EPS",()=>{
-  for(const field of ["actualTrailingRevenue","revenueYoyPct","fy1Eps","operatingMargin","operatingCashFlow","capitalExpenditure"]) assert.match(fmp,new RegExp(field));
+test("maps all six raw fields and documents Next FY Forward EPS",()=>{
+  for(const field of ["actualTrailingRevenue","revenueYoyPct","nextFyEps","operatingMargin","operatingCashFlow","capitalExpenditure"]) assert.match(fmp,new RegExp(field));
   assert.match(fmp,/next_fiscal_year_annual_consensus/);
   assert.doesNotMatch(fmp,/estimatedEpsAvg/);
-  assert.match(fmp,/numberOrNull\(fy1Row\?\.epsAvg\)/);
+  assert.match(fmp,/numberOrNull\(fiscalYearEstimates\.next\?\.epsAvg\)/);
   assert.doesNotMatch(fmp,/epsdiluted/);
 });
 

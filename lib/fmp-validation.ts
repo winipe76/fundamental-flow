@@ -1,4 +1,4 @@
-export const FMP_MAPPING_VERSION = "FMP Mapping v1.0";
+export const FMP_MAPPING_VERSION = "FMP Mapping v1.1";
 
 export const REQUIRED_RAW_FIELDS = [
   "revenue", "revenueGrowth", "forwardEps", "operatingMargin", "operatingCashFlow", "capitalExpenditure",

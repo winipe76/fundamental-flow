@@ -5,7 +5,7 @@ import test from "node:test";
 const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
 const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
 test("includes all product screens",()=>{for(const label of ["Fundamental Overview","Screener","Company Detail","Watchlist","Data Pilot"])assert.match(page,new RegExp(label))});
-test("uses consistent actual growth and FY1 definitions",()=>{for(const label of ["최근 분기 EPS","최근 분기 Revenue","FY1 EPS","1개월 수정률","3개월 수정률"])assert.match(page,new RegExp(label))});
+test("uses consistent actual growth and Next FY definitions",()=>{for(const label of ["최근 분기 EPS","최근 분기 Revenue","Next FY EPS","1개월 수정률","3개월 수정률"])assert.match(page,new RegExp(label))});
 test("keeps screening separate from Fundamental Overview",()=>{for(const label of ["NASDAQ 100 · FUNDAMENTAL SCREENING","SELECTED","Fundamental Score","Nasdaq 100 업데이트","현재 Screening 조건을 충족한 기업이 없습니다"])assert.match(page,new RegExp(label))});
 test("does not render live sample financial values",()=>{assert.doesNotMatch(page,/demoSnapshots|Sample fallback/);assert.match(page,/LIVE 데이터가 로드된 후에만/)});
 test("provides responsive growth layouts",()=>{assert.match(css,/\.growth-summary/);assert.match(css,/@media \(max-width:700px\)/)});

@@ -4,12 +4,12 @@
 
 | Item | Value |
 | --- | --- |
-| Data Dictionary Version | 1.0 |
-| Mapping Version | FMP Mapping v1.0 |
-| Verified Date | 2026-08-17 |
+| Data Dictionary Version | 1.1 |
+| Mapping Version | FMP Mapping v1.1 |
+| Verified Date | 2026-08-22 |
 | Verified Companies | PLTR, NVDA, MU |
 | API Version | FMP Stable API (`/stable`) |
-| Last Updated | 2026-08-17 |
+| Last Updated | 2026-08-22 |
 | Status | Official project reference |
 
 This document is the single source of truth for FMP fields currently consumed by Fundamental Flow. It covers source fields, normalized Monthly Snapshot fields, calculated fields, validation metadata, and Snapshot Quality. A field is not approved for production mapping merely because it appears in an FMP response.
@@ -46,15 +46,25 @@ PLTR example: Q2 2026 `$1,935,464,000` versus Q2 2025 `$1,003,697,000` = `92.833
 
 ### Forward EPS
 
-Forward EPS means the nearest future fiscal-year annual analyst consensus `epsAvg` returned by the annual Analyst Estimates endpoint.
+Forward EPS means the **Next Fiscal Year** annual analyst consensus `epsAvg`. The latest quarterly Income Statement `fiscalYear` identifies the Current Fiscal Year. Fundamental Flow then selects the annual Analyst Estimate whose `date` year equals `Current Fiscal Year + 1`. It does not select rows by array position or by nearest future date.
 
 | Candidate meaning | Used? | Reason |
 | --- | --- | --- |
-| FY+1 Estimate / Next Fiscal Year | Yes | Nearest estimate `date` on or after the snapshot date |
+| FY+1 Estimate / Next Fiscal Year | Yes | Annual estimate whose fiscal year is exactly Current FY + 1 |
 | NTM | No | The project does not combine four quarterly EPS estimates |
 | Quarterly Estimate | No | The endpoint request uses `period=annual` |
 
-The internal basis identifier is `next_fiscal_year_annual_consensus`. PLTR example: `epsAvg = 1.58907`, estimate fiscal date `2026-12-31`. No fallback field is permitted.
+Current FY EPS is stored separately as supporting information. Next FY EPS is the required Primary Forward Indicator used by the Calculation Engine, Screening, and Fundamental Overview. The internal basis identifier is `next_fiscal_year_annual_consensus`.
+
+Verified selection examples on 2026-08-22:
+
+| Company | Current FY EPS | Current FY Date | Next FY EPS | Next FY Date |
+| --- | ---: | --- | ---: | --- |
+| PLTR | 1.59974 | 2026-12-31 | 2.28177 | 2027-12-31 |
+| NVDA | 9.01477 | 2027-01-25 | 12.78792 | 2028-01-25 |
+| MU | approximately 73.2 | 2026-08-28 | approximately 154.6 | 2027-08-28 |
+
+FMP consensus values can change. The fiscal-year row selection is authoritative; example values are time-stamped observations. No fallback field or positional fallback is permitted.
 
 ### Operating Margin
 
@@ -134,8 +144,11 @@ CapEx Intensity = CAPEX / Revenue × 100
 | Income Statement, quarterly | `revenue` | `actualTrailingRevenue` / `actual_trailing_revenue` | number | Yes | Yes | Sum exactly four latest quarterly values | USD | Income Statement | Exactly four finite values required; no missing-quarter estimate | `6,155,941,000` |
 | Income Statement, quarterly | `operatingIncome` | `operatingIncome` / `operating_income` | number | Yes | Indirectly | Sum exactly four latest quarterly values | USD | Income Statement | Exactly four finite values required | `2,634,652,000` |
 | Income Statement, quarterly | `operatingIncome`, `revenue` | `operatingMargin` / `operating_margin` | number | Yes | Yes | TTM Operating Income / TTM Revenue | Decimal ratio | Income Statement | Revenue must be finite and non-zero; operating income must be finite | `0.4279852585` |
-| Analyst Estimates, annual | `date` | `fy1FiscalDate` / `estimate_fiscal_date` | date | Yes | Yes | Earliest estimate date on or after snapshot date | ISO date | Analyst Estimate | Must be a date string and must not precede snapshot date | `2026-12-31` |
-| Analyst Estimates, annual | `epsAvg` | `fy1Eps` / `annual_fwd_eps_estimate` | number | Yes | Yes | Direct value from selected nearest future annual row | USD/share | Analyst Estimate | Must convert to a finite number; no fallback field | `1.58907` |
+| Analyst Estimates, annual | `date` | `currentFyFiscalDate` / `current_fy_estimate_fiscal_date` | date | Yes | Supporting | Date year must equal latest Income Statement `fiscalYear` | ISO date | Analyst Estimate | No positional fallback; null when exact Current FY row is absent | `2026-12-31` |
+| Analyst Estimates, annual | `epsAvg` | `currentFyEps` / `current_fy_eps` | number | Yes | Supporting | Direct value from exact Current FY row | USD/share | Analyst Estimate | Must be finite; no fallback field | `1.59974` |
+| Analyst Estimates, annual | `date` | `nextFyFiscalDate` / `next_fy_estimate_fiscal_date` | date | Yes | Yes | Date year must equal latest Income Statement `fiscalYear + 1` | ISO date | Analyst Estimate | No positional fallback; null when exact Next FY row is absent | `2027-12-31` |
+| Analyst Estimates, annual | `epsAvg` | `nextFyEps` / `next_fy_eps` | number | Yes | Yes | Direct value from exact Next FY row | USD/share | Analyst Estimate | Must be finite; no fallback field | `2.28177` |
+| Analyst Estimates, annual | `date`, `epsAvg` | Legacy mirrors `estimate_fiscal_date`, `annual_fwd_eps_estimate` | date / number | Yes | No | New snapshots mirror the authoritative Next FY fields for compatibility | ISO date / USD/share | Analyst Estimate | Never used to compare with historical pre-v1.1 rows | `2027-12-31`, `2.28177` |
 | Cash Flow, quarterly | `date` | Cash-flow row ordering | date | Yes | No separate stored field | Descending sort; latest four rows used | ISO date | Cash Flow | Must be a string or the row is excluded from sorted inputs | `2026-06-30` |
 | Cash Flow, quarterly | `operatingCashFlow` | `operatingCashFlow` / `operating_cash_flow` | number | Yes | Yes | Sum exactly four latest quarterly values | USD | Cash Flow | Exactly four finite values required | `3,401,291,000` |
 | Cash Flow, quarterly | `capitalExpenditure` | `capitalExpenditure` / `capital_expenditure` | number | Yes | Yes | Absolute value of four-quarter sum | USD, positive investment | Cash Flow | Exactly four finite values required | `42,019,000` |
@@ -145,8 +158,8 @@ CapEx Intensity = CAPEX / Revenue × 100
 
 | API Endpoint | Raw Field | Internal Field | Data Type | Nullable | Required | Formula / Transformation | Unit | Snapshot Source | Validation Rule | PLTR Example |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Internal Calculation | `fy1Eps`, prior stored snapshot | `fy1EpsChange1mPct` / `fwd_eps_change_pct` | number | Yes | No | Current FY1 EPS versus exact prior-month snapshot | % | Monthly Snapshot | `estimate_fiscal_date` must match; exact prior calendar month required | `null` on first comparable month |
-| Internal Calculation | `fy1Eps`, prior stored snapshot | `fy1EpsChange3mPct` / `fy1_eps_change_3m_pct` | number | Yes | No | Current FY1 EPS versus exact three-month-prior snapshot | % | Monthly Snapshot | `estimate_fiscal_date` must match; exact comparison month required | `null` on first comparable month |
+| Internal Calculation | `nextFyEps`, prior stored snapshot | `nextFyRevision1m` / `next_fy_revision_1m` | number | Yes | No | `(Current Next FY EPS / prior-month same-date Next FY EPS - 1) × 100` | % | Monthly Snapshot | `next_fy_estimate_fiscal_date` must match; exact prior calendar month required | `null` on first comparable month |
+| Internal Calculation | `nextFyEps`, prior stored snapshot | `nextFyRevision3m` / `next_fy_revision_3m` | number | Yes | No | `(Current Next FY EPS / three-month-prior same-date Next FY EPS - 1) × 100` | % | Monthly Snapshot | `next_fy_estimate_fiscal_date` must match; exact comparison month required | `null` on first comparable month |
 | Internal Calculation | CFO, CAPEX | `freeCashFlow` / `free_cash_flow` | number | Yes | Calculation output | CFO minus CAPEX | USD | Calculation Engine | All six required raw metrics must be finite | `3,359,272,000` |
 | Internal Calculation | FCF, Revenue | `freeCashFlowMargin` / `fcf_margin` | number | Yes | Calculation output | FCF / Revenue | Decimal ratio in DB | Calculation Engine | Revenue must be finite and non-zero | `0.546` after one-decimal-percent rounding |
 | Internal Calculation | CFO, Revenue | `cfoMargin` / `cfo_margin` | number | Yes | Calculation output | CFO / Revenue | Decimal ratio in DB | Calculation Engine | Revenue must be finite and non-zero | `0.553` after one-decimal-percent rounding |
@@ -154,9 +167,9 @@ CapEx Intensity = CAPEX / Revenue × 100
 | Internal Calculation | Revenue Growth, FCF Margin | `classicRule40` / `classic_rule_40` | number | Yes | Calculation output | Revenue Growth % + FCF Margin % | Percentage points | Calculation Engine | Required raw fields and derived FCF Margin must be valid | `147.4` |
 | Internal Calculation | Revenue Growth, Operating Margin | `operatingRule40` / `operating_rule_40` | number | Yes | Calculation output | Revenue Growth % + Operating Margin % | Percentage points | Calculation Engine | Required raw fields must be valid | `135.6` |
 | Internal Calculation | Revenue Growth, CFO Margin | `cashRule40` / `cash_rule_40` | number | Yes | Calculation output | Revenue Growth % + CFO Margin % | Percentage points | Calculation Engine | Required raw fields and derived CFO Margin must be valid | `148.1` |
-| Internal Constant | Selected annual estimate | `forwardEpsBasis` / `forward_eps_basis` | string | No | Yes | Constant `next_fiscal_year_annual_consensus` | Identifier | Analyst Estimate | Must equal approved Mapping 1.0 basis | `next_fiscal_year_annual_consensus` |
+| Internal Constant | Selected annual estimate | `forwardEpsBasis` / `forward_eps_basis` | string | No | Yes | Constant `next_fiscal_year_annual_consensus` | Identifier | Analyst Estimate | Must equal approved Mapping 1.1 basis | `next_fiscal_year_annual_consensus` |
 | Internal Constant | Three FMP requests | `dataSource` / `data_source` | string | No | Yes | Fixed endpoint description | Text | All three sources | Must name annual estimates and quarterly income/cash flow | `FMP stable: analyst-estimates (annual), ...` |
-| Internal Constant | EPS mappings | `epsDefinition` / `eps_definition` | string | No | Yes | Fixed description of actual and forward EPS bases | Text | Income Statement / Analyst Estimate | Must distinguish GAAP diluted actual EPS from FY1 consensus | `Actual: FMP standardized GAAP diluted EPS ...` |
+| Internal Constant | EPS mappings | `epsDefinition` / `eps_definition` | string | No | Yes | Fixed description of actual and forward EPS bases | Text | Income Statement / Analyst Estimate | Must distinguish GAAP diluted actual EPS from Next FY consensus | `Actual: FMP standardized GAAP diluted EPS ...` |
 | Internal Validation | Six required raw metrics | `missingFields` / `missing_fields` | string array | No | Yes | Names required metrics whose normalized values are null | JSON | Monthly Snapshot | Must contain only required-field identifiers | `[]` |
 | Internal Validation | FMP request results, six fields | `collectionStatus` / `collection_status` | string | No | Yes | All calls fail → `failed`; all six present → `complete`; otherwise `partial` | Enum | Monthly Snapshot | Allowed values only | `complete` |
 | Internal Validation | Six required raw metrics | `calculationSuccess` / `calculation_success` | boolean | Yes | Yes | True only when all six values are finite | Boolean | Calculation Engine | Must not be true when `collectionStatus` is partial/failed | `true` |
@@ -201,8 +214,10 @@ This compact table contains every FMP raw field consumed by production mapping. 
 | Income Statement | `revenue` | `actualTrailingRevenue` | Sum latest four quarters | Yes |
 | Income Statement | `operatingIncome` | `operatingIncome` | Sum latest four quarters | Yes for margin |
 | Income Statement | `operatingIncome`, `revenue` | `operatingMargin` | `TTM operatingIncome / TTM revenue` | Yes |
-| Analyst Estimates | `date` | `fy1FiscalDate` | Nearest future annual date | Yes |
-| Analyst Estimates | `epsAvg` | `fy1Eps` | Selected annual consensus value | Yes |
+| Analyst Estimates | `date` | `currentFyFiscalDate` | Date year equals latest reported `fiscalYear` | Supporting |
+| Analyst Estimates | `epsAvg` | `currentFyEps` | Exact Current FY annual consensus | Supporting |
+| Analyst Estimates | `date` | `nextFyFiscalDate` | Date year equals latest reported `fiscalYear + 1` | Yes |
+| Analyst Estimates | `epsAvg` | `nextFyEps` | Exact Next FY annual consensus | Yes |
 | Cash Flow | `date` | Cash-flow ordering | Latest four dated rows | Yes for TTM cash fields |
 | Cash Flow | `operatingCashFlow` | `operatingCashFlow` | Sum latest four quarters | Yes |
 | Cash Flow | `capitalExpenditure` | `capitalExpenditure` | Absolute value of four-quarter sum | Yes |
@@ -214,7 +229,7 @@ This compact table contains every FMP raw field consumed by production mapping. 
 
 | Endpoint | Raw Field | Internal Field | Formula | Required |
 | --- | --- | --- | --- | --- |
-| Internal Mapping | n/a | `mapping_version` | Constant `FMP Mapping v1.0` | Yes |
+| Internal Mapping | n/a | `mapping_version` | Constant `FMP Mapping v1.1` | Yes |
 | Income + Cash Flow | `reportedCurrency` | `reported_currency` | Store only one matching currency across both statements | Yes |
 | Internal Validation | source checks | `validation_status` | `warning` when any validation warning exists; otherwise `valid` | Yes |
 | Internal Validation | source checks | `validation_warnings` | JSON list of warning codes | Yes |
@@ -233,9 +248,11 @@ This compact table contains every FMP raw field consumed by production mapping. 
 
 - Revenue and diluted-EPS YoY comparisons require identical `period` values and a fiscal year exactly one less than the latest fiscal year.
 - If no exact match exists, the prior value and YoY result are null. Revenue Growth then fails the required-field check.
-- FY1 revision comparisons require an identical `estimate_fiscal_date`. A fiscal-year rollover starts a new comparison series.
+- Current FY is the latest quarterly Income Statement `fiscalYear`. Next FY is that fiscal year plus one; this handles companies such as NVDA whose fiscal-year label differs from the calendar year of most operating months.
+- Next FY revision comparisons require an identical `next_fy_estimate_fiscal_date`. A fiscal-year rollover starts a new comparison series; prior Current/Next FY series are never joined.
+- At rollover, 1M and 3M remain null until exact-month snapshots for the new Next FY date exist.
 - The four Income Statement and Cash Flow rows must match by `fiscalYear`, `period`, and `date`; otherwise `validation_status = warning` with `fiscal_period_mismatch`.
-- Analyst Estimate is an annual FY+1 series, not the same quarterly period. It is validated as a future fiscal date; an absent or past date records `analyst_estimate_fiscal_date_invalid`.
+- Analyst Estimate is an annual series. The selected Primary row must be the exact Next FY identified from the latest reported fiscal year; an absent row makes Forward EPS null.
 
 ### Currency Mismatch
 
@@ -274,7 +291,7 @@ This compact table contains every FMP raw field consumed by production mapping. 
 | --- | ---: | --- |
 | Revenue | 15 | Finite TTM Revenue |
 | Revenue Growth | 15 | Finite exact-quarter YoY growth |
-| Forward EPS | 14 | Finite annual FY1 `epsAvg` |
+| Forward EPS | 14 | Finite exact Next Fiscal Year annual `epsAvg` |
 | Operating Margin | 14 | Finite TTM margin |
 | CFO | 28 | Finite TTM CFO |
 | CAPEX | 10 | Finite normalized TTM CAPEX |
@@ -289,7 +306,7 @@ Quality below 80 triggers the AI caution flag. Quality is data completeness, not
 - NTM EPS and quarterly EPS estimates: not used for Forward EPS.
 - `reportedCurrency`: consumed for cross-statement currency validation and stored as `reported_currency` only when consistent.
 - `numAnalystsEps`: observed in the Analyst Estimates response but not consumed or stored.
-- Legacy nullable DB columns for estimated annual revenue, NTM components, and margin-change placeholders are not part of active FMP Mapping 1.0.
+- Legacy pre-v1.1 Forward EPS columns are retained to preserve existing snapshots. New revision calculations use only `next_fy_*` fields and never mix old Current FY values into the Next FY series.
 
 ## Maintenance Procedure
 

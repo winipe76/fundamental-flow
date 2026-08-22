@@ -50,6 +50,13 @@
       "when": 1787040000000,
       "tag": "0006_snapshot_quality",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787396982731,
+      "tag": "0007_next_fy_forward_eps",
+      "breakpoints": true
     }
   ]
 }

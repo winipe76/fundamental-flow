@@ -25,5 +25,5 @@ Each PLTR, NVDA, and MU report contains:
 Known API considerations:
 
 - FMP reports CAPEX as a negative cash outflow; the integration normalizes it to a positive investment amount.
-- FY1 can roll to another fiscal year. Forward EPS revisions must be compared only when the estimate fiscal date matches.
+- Next FY can roll to another fiscal year. Forward EPS revisions are compared only when `next_fy_estimate_fiscal_date` matches; rollover starts a new null revision series.
 - Endpoint availability, request usage, missing-field frequency, and fiscal-date rollover should be reviewed before expanding to the full Nasdaq 100.
