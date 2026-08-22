@@ -14,16 +14,17 @@ test("registers and removes candidates through the secure Buy Engine sync endpoi
   assert.match(route, /Authorization.*Bearer/);
 });
 
-test("offers add and remove actions for company presentations", () => {
+test("offers the existing Buy Engine toggle from company detail and screener", () => {
   assert.match(page, /function CandidateActions/);
   assert.match(page, /Add to Buy Engine/);
   assert.match(page, /Remove from Buy Engine/);
-  assert.match(page, /companies\.map[\s\S]*CandidateActions ticker=\{c\.ticker\}/);
+  assert.match(page, /detail-buy-action[\s\S]*CandidateActions ticker=\{c\.ticker\}/);
+  assert.match(page, /RankingCandidateRow[\s\S]*CandidateActions ticker=\{row\.ticker\}/);
 });
 
 test("shows one toggle button from the actual Buy Engine candidate state", () => {
   assert.match(page, /fetch\(`\/api\/buy-engine\/candidates\?ticker=/);
-  assert.match(page, /setAdded\(payload\.added===true\)/);
+  assert.match(page, /setCandidateState\(\{ticker,added:payload\.added===true\}\)/);
   assert.match(page, /Added · Remove from Buy Engine/);
   assert.match(page, /aria-pressed=\{added\}/);
   assert.doesNotMatch(page, /<button[^>]*>Remove from Buy Engine<\/button>/);

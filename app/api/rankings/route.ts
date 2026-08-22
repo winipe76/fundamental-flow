@@ -23,8 +23,16 @@ export async function GET() {
         WHERE ticker IN (${placeholders}) GROUP BY ticker
       ) x ON x.ticker=s.ticker AND x.snapshot_date=s.snapshot_date
     `).bind(...NASDAQ_100_TICKERS).all();
-    const enriched = latest.results.map((row) => ({ ...row, ...NASDAQ_100_BY_TICKER.get(String(row.ticker)) }));
-    const ranked = rankSnapshots(enriched).slice(0, 10);
+    const classifications = await runtime.DB.prepare(`
+      SELECT ticker, stage FROM fundamental_classifications
+      WHERE ticker IN (${placeholders})
+    `).bind(...NASDAQ_100_TICKERS).all<{ ticker:string; stage:string }>();
+    const stageByTicker = new Map(classifications.results.map(row => [row.ticker, row.stage]));
+    const selectedStages = new Set(["newly_selected", "continuing_improvement"]);
+    const eligible = latest.results
+      .filter(row => selectedStages.has(stageByTicker.get(String(row.ticker)) ?? ""))
+      .map(row => ({ ...row, ...NASDAQ_100_BY_TICKER.get(String(row.ticker)), classification: stageByTicker.get(String(row.ticker)) }));
+    const ranked = rankSnapshots(eligible).slice(0, 10);
     const lastUpdated = latest.results.reduce<string | null>((latestDate, row) => {
       const value = typeof row.collected_at === "string" ? row.collected_at : null;
       return value && (!latestDate || value > latestDate) ? value : latestDate;
@@ -37,6 +45,7 @@ export async function GET() {
       status: runtime.FMP_API_KEY ? "connected" : "key_missing",
       universeSize: NASDAQ_100.length,
       coverage: latest.results.length,
+      eligibleCount: eligible.length,
       stage,
       lastUpdated,
       rankings: ranked,

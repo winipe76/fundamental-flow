@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { TEST_TICKERS } from "@/lib/fmp";
+import { NASDAQ_100, NASDAQ_100_TICKERS } from "@/lib/nasdaq100";
 import { collectAndStoreTicker } from "@/lib/snapshot-store";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +23,27 @@ function validation(row:Record<string,unknown>){
 export async function GET(request: Request) {
   if (!runtime.DB) return json({ configured: Boolean(runtime.FMP_API_KEY), status: "database_unavailable", snapshots: [], history: [] }, 503);
   try {
-    const historyTicker = new URL(request.url).searchParams.get("ticker")?.toUpperCase() ?? null;
+    const searchParams = new URL(request.url).searchParams;
+    const historyTicker = searchParams.get("ticker")?.toUpperCase() ?? null;
+    if (searchParams.get("scope") === "overview") {
+      const placeholders = NASDAQ_100_TICKERS.map(() => "?").join(",");
+      const snapshots = await runtime.DB.prepare(`
+        WITH ranked AS (
+          SELECT s.*,
+            ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY snapshot_date DESC) AS snapshot_rank
+          FROM fundamental_snapshots s
+          WHERE ticker IN (${placeholders})
+        )
+        SELECT * FROM ranked WHERE snapshot_rank <= 2 ORDER BY ticker, snapshot_rank
+      `).bind(...NASDAQ_100_TICKERS).all();
+      return json({
+        status: "connected",
+        universeSize: NASDAQ_100.length,
+        snapshots: snapshots.results,
+      });
+    }
     if (historyTicker) {
-      if (!(TEST_TICKERS as readonly string[]).includes(historyTicker)) return json({ status: "invalid_ticker", history: [] }, 400);
+      if (!NASDAQ_100_TICKERS.includes(historyTicker)) return json({ status: "invalid_ticker", history: [] }, 400);
       const history = await runtime.DB.prepare(`
         SELECT * FROM fundamental_snapshots WHERE ticker=? ORDER BY snapshot_date DESC LIMIT 60
       `).bind(historyTicker).all();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { NASDAQ_100, NASDAQ_100_BY_TICKER } from "@/lib/nasdaq100";
 
 type View = "Fundamental Overview" | "Screener" | "Company Detail" | "Watchlist" | "Data Pilot";
 type Company = { ticker:string; company:string; sector:string; status:"Newly Selected"|"Continuing Improvement"|"Watch"|"Caution"|"Excluded"; reason:string };
@@ -14,38 +15,39 @@ const companies: Company[] = [
 const icons:Record<View,string>={"Fundamental Overview":"⌂",Screener:"◎","Company Detail":"▤",Watchlist:"☆","Data Pilot":"↻"};
 
 export default function Home(){
-  const [view,setView]=useState<View>("Fundamental Overview"); const [ticker,setTicker]=useState("PLTR"); const [mobile,setMobile]=useState(false); const pilot=usePilot();
+  const [view,setView]=useState<View>("Fundamental Overview"); const [ticker,setTicker]=useState("PLTR"); const [mobile,setMobile]=useState(false); const pilot=usePilot(); const overview=useOverview();
   const open=(next:string)=>{setTicker(next);setView("Company Detail");setMobile(false)};
   return <main className="structure-shell"><aside className={`main-nav ${mobile?"open":""}`}><div className="nav-brand"><span>F</span><div><strong>Fundamental Flow</strong><small>Investment Philosophy v1.1</small></div></div><nav aria-label="주요 화면">{(Object.keys(icons) as View[]).map(item=><button key={item} className={view===item?"active":""} onClick={()=>{setView(item);setMobile(false)}}><i>{icons[item]}</i><span>{item}</span>{item==="Data Pilot"&&<b>LIVE</b>}</button>)}</nav><div className="nav-philosophy"><span>OUR PHILOSOPHY</span><p>우리는 주가를 추종하지 않는다.<br/><strong>기업의 변화를 추적한다.</strong></p></div><div className="pilot-indicator"><i/> Validation Universe: {companies.length} / Nasdaq 100</div></aside>
     <section className="structure-workspace"><header className="structure-header"><button className="menu-button" onClick={()=>setMobile(!mobile)} aria-label="메뉴 열기">☰</button><div><span>{view}</span><small>Actual Growth · FY1 Consensus</small></div><button className="header-search" onClick={()=>setView("Screener")}>⌕ <span>기업 검색</span></button></header>
-      {view==="Fundamental Overview"&&<Dashboard pilot={pilot} open={open}/>} {view==="Screener"&&<Screener/>} {view==="Company Detail"&&<Detail pilot={pilot} ticker={ticker}/>} {view==="Watchlist"&&<Watchlist open={open}/>} {view==="Data Pilot"&&<DataPilot pilot={pilot} open={open}/>}</section>{mobile&&<button className="nav-overlay" aria-label="메뉴 닫기" onClick={()=>setMobile(false)}/>}</main>;
+      {view==="Fundamental Overview"&&<Dashboard overview={overview}/>} {view==="Screener"&&<Screener open={open}/>} {view==="Company Detail"&&<Detail pilot={pilot} ticker={ticker}/>} {view==="Watchlist"&&<Watchlist open={open}/>} {view==="Data Pilot"&&<DataPilot pilot={pilot} open={open}/>}</section>{mobile&&<button className="nav-overlay" aria-label="메뉴 닫기" onClick={()=>setMobile(false)}/>}</main>;
 }
 
-function Dashboard({pilot,open}:{pilot:PilotState;open:(t:string)=>void}){
-  const cards=[{label:"신규 선정",value:0,tone:"blue"},{label:"지속 개선",value:0,tone:"green"},{label:"관찰",value:companies.length,tone:"amber"},{label:"주의",value:0,tone:"red"},{label:"제외",value:0,tone:"gray"}];
-  const trends=fundamentalOverview(pilot.snapshots);
-  return <div className="structure-content"><section className="structure-hero philosophy-hero"><div><span>INVESTMENT PHILOSOPHY v1.1</span><h1>우리는 주가를 추종하지 않는다.<br/>기업의 변화를 추적한다.</h1><p>We do not follow stock prices. We follow changes in business fundamentals.</p></div><div className="universe-ring"><strong>{pilot.snapshots.length||companies.length}</strong><span>OBSERVED COMPANIES</span><small>Fundamental Change</small></div></section><LiveBanner pilot={pilot}/>
-    <section className="fundamental-trend-section"><div className="section-intro"><span>PRIMARY VIEW</span><h2>Fundamental Change</h2><p>점수보다 기업의 이익 전망, 성장, 수익성, 현금 창출력의 방향을 먼저 봅니다.</p></div><div className="fundamental-trend-grid">{trends.map(item=><article key={item.label}><span>{item.label}</span><strong className={item.tone}>{item.signal}</strong><small>{item.detail}</small></article>)}</div></section>
-    <section className="structure-panel change-panel"><Panel eyebrow="COMPANY-BY-COMPANY EXPLANATION" title="기업 변화와 분류 이유" badge={originLabel(pilot)}/><div className="change-company-list">{companies.map(c=>{const s=find(pilot.snapshots,c.ticker);return <article key={c.ticker}><button className="company-change-link" onClick={()=>open(c.ticker)}><span className="ticker-avatar">{c.ticker.slice(0,2)}</span><div className="change-company-name"><strong>{c.ticker}</strong><small>{c.company}</small><Status status={c.status}/></div><div className="change-reasons"><b>Reason</b>{fundamentalReasons(s).map(reason=><small key={reason.label} className={reason.tone}>{reason.mark} {reason.label}</small>)}</div><span className={`rule40-state ${rule40State(s).toLowerCase()}`}>Rule of 40 · {rule40State(s)}</span><i>›</i></button><CandidateActions ticker={c.ticker}/></article>})}</div></section>
-    <section className="secondary-screening"><div className="section-intro compact"><span>SECONDARY VIEW</span><h2>Screening Classification</h2><p>분류는 펀더멘털 변화를 요약하는 보조 정보입니다.</p></div><div className="status-card-grid">{cards.map(c=><article key={c.label} className={`status-card ${c.tone}`}><span>{c.label}</span><strong>{c.value}</strong><small>{c.label==="관찰"?"변화 근거 축적 중":"해당 기업 없음"}</small></article>)}</div></section></div>;
+function Dashboard({overview}:{overview:OverviewState}){
+  const summary=fundamentalOverview(overview.snapshots,overview.universeSize);
+  return <div className="structure-content"><section className="structure-hero philosophy-hero"><div><span>INVESTMENT PHILOSOPHY v1.1</span><h1>우리는 주가를 추종하지 않는다.<br/>기업의 변화를 추적한다.</h1><p>We do not follow stock prices. We follow changes in business fundamentals.</p></div><div className="universe-ring"><strong>{overview.universeSize}</strong><span>NASDAQ 100 UNIVERSE</span><small>Fundamental Change</small></div></section>
+    <section className="overview-scope" aria-label="분석 범위"><div><span>Nasdaq 100 Universe</span><strong>{overview.universeSize}</strong></div><div><span>Valid Snapshots</span><strong>{summary.validSnapshots}</strong></div><small>{overview.loading?"전체 흐름을 불러오는 중입니다.":"필수 원천 데이터와 계산이 모두 유효한 최신 Snapshot 기준"}</small></section>
+    <section className="fundamental-trend-section"><div className="section-intro"><span>NASDAQ 100 · PRIMARY VIEW</span><h2>Fundamental Change</h2><p>기업 이름이나 순위가 아니라 이익 전망, 성장, 수익성, 현금 창출력의 전체 방향을 봅니다.</p></div><div className="fundamental-trend-grid">{summary.indicators.map(item=><article key={item.label}><span>{item.label}</span><strong className={item.tone}>{item.signal}</strong><div className="trend-distribution"><b className="positive">↑ Improving <em>{item.improving}</em></b><b className="neutral">→ Stable <em>{item.stable}</em></b><b className="negative">↓ Weakening <em>{item.weakening}</em></b></div><small>Valid Companies: {item.valid} / {overview.universeSize}</small></article>)}</div></section></div>;
 }
 
-function Screener(){
+function Screener({open}:{open:(ticker:string)=>void}){
   const ranking=useRanking(); const [query,setQuery]=useState("");
-  const visible=useMemo(()=>ranking.rows.filter(row=>`${row.ticker} ${row.name??""}`.toLowerCase().includes(query.toLowerCase())),[query,ranking.rows]);
-  return <div className="structure-content"><Heading eyebrow="NASDAQ 100 · PILOT RANKING" title="Screener" description="Nasdaq 100 전체에서 실제 성장과 FY1 컨센서스 변화를 백분위 점수로 비교한 단순 순위입니다. Dashboard 선정 상태에는 반영하지 않습니다." badge="TOP 10"/>
+  const normalized=query.trim().toLowerCase();
+  const searchResults=useMemo(()=>normalized?NASDAQ_100.filter(company=>`${company.ticker} ${company.name}`.toLowerCase().includes(normalized)).slice(0,20):[],[normalized]);
+  return <div className="structure-content"><Heading eyebrow="NASDAQ 100 · FUNDAMENTAL SCREENING" title="Screener" description="기본 목록에는 Screening 조건을 충족한 기업만 표시합니다. 검색에서는 Nasdaq 100 전체 기업을 조회할 수 있습니다." badge="SELECTED"/>
     <section className="ranking-summary"><div><span>수집 범위</span><strong>{ranking.coverage} / 100</strong></div><div><span>현재 점수 단계</span><strong>{rankingStageLabel(ranking.stage)}</strong></div><div><span>마지막 업데이트</span><strong>{dateTime(ranking.lastUpdated)}</strong></div><button onClick={ranking.refresh} disabled={ranking.refreshing}>{ranking.refreshing?`${ranking.progress}% 수집 중…`:"Nasdaq 100 업데이트"}</button></section>
     <p className="ranking-note">{ranking.stage==="actual_only"?"초기 순위: EPS YoY 50% + Revenue YoY 50%. 1개월·3개월 스냅샷이 충분히 쌓이면 FY1 수정률이 자동 반영됩니다.":ranking.stage==="one_month"?"중간 순위: EPS YoY 35% + Revenue YoY 35% + FY1 1M 30%.":"정식 관찰 순위: EPS YoY 30% + Revenue YoY 30% + FY1 1M 20% + FY1 3M 20%."}</p>
-    <div className="filter-bar ranking-filter"><label><span>⌕</span><input aria-label="순위 기업 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Top 10 티커 또는 회사명 검색"/></label><span>{visible.length} / 10 companies</span></div>
-    <section className="structure-panel screener-table ranking-table"><table><thead><tr><th>순위</th><th>기업</th><th>섹터</th><th>최근 분기 EPS<small className="metric-definition">GAAP diluted <EpsDefinition/></small></th><th>최근 분기 Revenue</th><th>FY1 1M</th><th>FY1 3M</th><th>Fundamental Score</th><th>Buy Engine</th></tr></thead><tbody>{visible.map(row=><RankingCandidateRow key={row.ticker} row={row}/>)}</tbody></table>{!visible.length&&<div className="empty-state"><strong>{ranking.refreshing?"Nasdaq 100 데이터를 수집 중입니다.":"순위 데이터가 없습니다."}</strong><span>{ranking.refreshing?`진행률 ${ranking.progress}%`:"Nasdaq 100 업데이트를 실행하면 Top 10이 계산됩니다."}</span></div>}</section></div>;
+    <div className="filter-bar ranking-filter"><label><span>⌕</span><input aria-label="Nasdaq 100 기업 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nasdaq 100 전체 티커 또는 회사명 검색"/></label><span>{normalized?`${searchResults.length}개 검색 결과`:`${ranking.rows.length}개 조건 충족`}</span></div>
+    {normalized?<section className="structure-panel universe-search-results" aria-label="Nasdaq 100 검색 결과">{searchResults.map(company=><button key={company.ticker} onClick={()=>open(company.ticker)}><span className="ticker-avatar">{company.ticker.slice(0,2)}</span><div><strong>{company.ticker}</strong><small>{company.name}</small></div><span>{company.sector}</span><i>Company Detail ›</i></button>)}{!searchResults.length&&<div className="empty-state"><strong>검색 결과가 없습니다.</strong><span>Nasdaq 100 티커 또는 회사명을 확인해 주세요.</span></div>}</section>:
+    <section className="structure-panel screener-table ranking-table"><table><thead><tr><th>순위</th><th>기업</th><th>섹터</th><th>최근 분기 EPS<small className="metric-definition">GAAP diluted <EpsDefinition/></small></th><th>최근 분기 Revenue</th><th>FY1 1M</th><th>FY1 3M</th><th>Fundamental Score</th><th>Buy Engine</th></tr></thead><tbody>{ranking.rows.map(row=><RankingCandidateRow key={row.ticker} row={row} open={open}/>)}</tbody></table>{!ranking.rows.length&&<div className="empty-state"><strong>{ranking.refreshing?"Nasdaq 100 데이터를 수집 중입니다.":"현재 Screening 조건을 충족한 기업이 없습니다."}</strong><span>{ranking.refreshing?`진행률 ${ranking.progress}%`:"상단 검색에서는 조건 충족 여부와 관계없이 Nasdaq 100 전체 기업을 조회할 수 있습니다."}</span></div>}</section>}</div>;
 }
 
-function RankingCandidateRow({row}:{row:RankingRow}){
-  return <tr><td><strong className="rank-number">#{row.rank}</strong></td><td><strong>{row.ticker}</strong><small>{row.name}</small></td><td>{row.sector}</td><MetricCell value={formatEps(num(row,"latest_quarter_eps","latestQuarterEps"))} sub={epsYoyText(row)} tone={epsTone(row)}/><MetricCell value={formatMoney(num(row,"latest_quarter_revenue","latestQuarterRevenue"))} sub={yoy(num(row,"revenue_yoy_pct","revenueYoyPct"))} tone={num(row,"revenue_yoy_pct","revenueYoyPct")}/><td className={toneClass(fy1Change1m(row))}>{revision(fy1Change1m(row))}</td><td className={toneClass(fy1Change3m(row))}>{revision(fy1Change3m(row))}</td><td><strong>{row.score.toFixed(1)}</strong><small>백분위 종합</small></td><td><CandidateActions ticker={row.ticker}/></td></tr>;
+function RankingCandidateRow({row,open}:{row:RankingRow;open:(ticker:string)=>void}){
+  const navigate=()=>open(row.ticker);
+  return <tr role="link" tabIndex={0} aria-label={`${row.ticker} Company Detail 열기`} onClick={navigate} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();navigate()}}}><td><strong className="rank-number">#{row.rank}</strong></td><td><strong>{row.ticker}</strong><small>{row.name}</small></td><td>{row.sector}</td><MetricCell value={formatEps(num(row,"latest_quarter_eps","latestQuarterEps"))} sub={epsYoyText(row)} tone={epsTone(row)}/><MetricCell value={formatMoney(num(row,"latest_quarter_revenue","latestQuarterRevenue"))} sub={yoy(num(row,"revenue_yoy_pct","revenueYoyPct"))} tone={num(row,"revenue_yoy_pct","revenueYoyPct")}/><td className={toneClass(fy1Change1m(row))}>{revision(fy1Change1m(row))}</td><td className={toneClass(fy1Change3m(row))}>{revision(fy1Change3m(row))}</td><td><strong>{row.score.toFixed(1)}</strong><small>백분위 종합</small></td><td onClick={event=>event.stopPropagation()} onKeyDown={event=>event.stopPropagation()}><CandidateActions ticker={row.ticker}/></td></tr>;
 }
 
 function Detail({pilot,ticker}:{pilot:PilotState;ticker:string}){
-  const c=companies.find(x=>x.ticker===ticker)??companies[0],s=find(pilot.snapshots,ticker),companyHistory=useCompanyHistory(ticker),history=companyHistory.rows.filter(x=>fy1Eps(x)!==null&&fy1Label(x)===fy1Label(s)).slice().reverse();
+  const companyHistory=useCompanyHistory(ticker),metadata=NASDAQ_100_BY_TICKER.get(ticker),known=companies.find(x=>x.ticker===ticker),c:Company=known??{ticker,company:metadata?.name??ticker,sector:metadata?.sector??"Nasdaq 100",status:"Watch",reason:"Company Detail 검색 조회"},s=find(pilot.snapshots,ticker)??companyHistory.rows[0]??null,history=companyHistory.rows.filter(x=>fy1Eps(x)!==null&&fy1Label(x)===fy1Label(s)).slice().reverse();
   const period=`${str(s,"latest_fiscal_year","latestFiscalYear")??"—"} ${str(s,"latest_fiscal_period","latestFiscalPeriod")??""}`;
   return <div className="structure-content"><section className="detail-heading"><div className="ticker-avatar large">{c.ticker.slice(0,2)}</div><div><span>{c.sector}</span><h1>{c.company}</h1><p>{c.ticker} · Nasdaq 100 Pilot</p></div><Status status={c.status}/><div className="detail-buy-action"><CandidateActions ticker={c.ticker} disabled={!s}/></div></section><div className="detail-section-grid">
     <section className="structure-panel wide"><Panel eyebrow="COMPANY PROFILE" title="기업 기본 정보" badge="PILOT"/><div className="profile-grid"><span>티커<strong>{c.ticker}</strong></span><span>회사명<strong>{c.company}</strong></span><span>섹터<strong>{c.sector}</strong></span><span>데이터 상태<strong>{snapshotState(pilot,s)}</strong></span></div></section>
@@ -75,9 +77,12 @@ type Snapshot={ticker:string;[key:string]:unknown};
 type RankingRow=Snapshot&{rank:number;score:number;name?:string;sector?:string};
 type RankingStage="actual_only"|"one_month"|"three_month";
 type PilotState={status:ApiStatus;snapshots:Snapshot[];history:Snapshot[];lastUpdated:string|null;lastSuccessfulUpdate:string|null;refreshing:boolean;refresh:()=>Promise<void>};
+type OverviewState={status:ApiStatus;snapshots:Snapshot[];universeSize:number;loading:boolean};
 const statusLabel:Record<ApiStatus,string>={loading:"불러오는 중",connected:"LIVE",partial:"LIVE · 일부 산출 불가",key_missing:"API 키 필요",database_error:"오류",database_unavailable:"데이터 없음",error:"오류"};
 
 function usePilot():PilotState{const [status,setStatus]=useState<ApiStatus>("loading"),[snapshots,setSnapshots]=useState<Snapshot[]>([]),[history,setHistory]=useState<Snapshot[]>([]),[lastUpdated,setLastUpdated]=useState<string|null>(null),[lastSuccessfulUpdate,setLastSuccessful]=useState<string|null>(null),[refreshing,setRefreshing]=useState(false);const load=useCallback(async()=>{try{const r=await fetch("/api/fundamentals",{cache:"no-store"}),p=await r.json();setStatus((p.status as ApiStatus)||(r.ok?"connected":"error"));setSnapshots(Array.isArray(p.snapshots)?p.snapshots:[]);setHistory(Array.isArray(p.history)?p.history:[]);setLastUpdated(p.lastUpdated??null);setLastSuccessful(p.lastSuccessfulUpdate??null)}catch{setStatus("error")}},[]);useEffect(()=>{queueMicrotask(()=>void load())},[load]);const refresh=useCallback(async()=>{setRefreshing(true);try{const r=await fetch("/api/fundamentals",{method:"POST"}),p=await r.json();setStatus((p.status as ApiStatus)||(r.ok?"connected":"error"));if(Array.isArray(p.results))setSnapshots(p.results);setLastUpdated(p.lastUpdated??null);await load()}catch{setStatus("error")}finally{setRefreshing(false)}},[load]);return{status,snapshots,history,lastUpdated,lastSuccessfulUpdate,refreshing,refresh}}
+
+function useOverview():OverviewState{const [state,setState]=useState<OverviewState>({status:"loading",snapshots:[],universeSize:NASDAQ_100.length,loading:true});useEffect(()=>{let active=true;fetch("/api/fundamentals?scope=overview",{cache:"no-store"}).then(async response=>{const payload=await response.json();if(active)setState({status:(payload.status as ApiStatus)||(response.ok?"connected":"error"),snapshots:Array.isArray(payload.snapshots)?payload.snapshots:[],universeSize:typeof payload.universeSize==="number"?payload.universeSize:NASDAQ_100.length,loading:false})}).catch(()=>{if(active)setState(current=>({...current,status:"error",loading:false}))});return()=>{active=false}},[]);return state}
 
 function useCompanyHistory(ticker:string){const [state,setState]=useState<{ticker:string;rows:Snapshot[]}>({ticker:"",rows:[]});useEffect(()=>{let active=true;fetch(`/api/fundamentals?ticker=${encodeURIComponent(ticker)}`,{cache:"no-store"}).then(r=>r.json()).then(p=>{if(active)setState({ticker,rows:Array.isArray(p.history)?p.history:[]})}).catch(()=>{if(active)setState({ticker,rows:[]})});return()=>{active=false}},[ticker]);return{rows:state.ticker===ticker?state.rows:[],loading:state.ticker!==ticker}}
 
@@ -89,9 +94,10 @@ function useCandidateTransfer(){
 }
 
 function CandidateActions({ticker,disabled=false}:{ticker:string;disabled?:boolean}){
-  const transfer=useCandidateTransfer(),[added,setAdded]=useState(false),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[message,setMessage]=useState("");
-  useEffect(()=>{let active=true;setLoading(true);fetch(`/api/buy-engine/candidates?ticker=${encodeURIComponent(ticker)}`,{cache:"no-store"}).then(async response=>{const payload=await response.json();if(!response.ok)throw new Error(payload.error??"Buy Engine 상태를 확인하지 못했습니다.");if(active)setAdded(payload.added===true)}).catch(error=>{if(active)setMessage(error instanceof Error?error.message:"상태 확인 실패")}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[ticker]);
-  const toggle=async()=>{setWorking(true);setMessage("");try{setMessage(added?await transfer.remove(ticker):await transfer.send(ticker));setAdded(!added)}catch(error){setMessage(error instanceof Error?error.message:"처리 실패")}finally{setWorking(false)}};
+  const transfer=useCandidateTransfer(),[candidateState,setCandidateState]=useState({ticker:"",added:false}),[working,setWorking]=useState(false),[message,setMessage]=useState("");
+  const loading=candidateState.ticker!==ticker,added=loading?false:candidateState.added;
+  useEffect(()=>{let active=true;fetch(`/api/buy-engine/candidates?ticker=${encodeURIComponent(ticker)}`,{cache:"no-store"}).then(async response=>{const payload=await response.json();if(!response.ok)throw new Error(payload.error??"Buy Engine 상태를 확인하지 못했습니다.");if(active)setCandidateState({ticker,added:payload.added===true})}).catch(error=>{if(active){setCandidateState({ticker,added:false});setMessage(error instanceof Error?error.message:"상태 확인 실패")}});return()=>{active=false}},[ticker]);
+  const toggle=async()=>{setWorking(true);setMessage("");try{setMessage(added?await transfer.remove(ticker):await transfer.send(ticker));setCandidateState({ticker,added:!added})}catch(error){setMessage(error instanceof Error?error.message:"처리 실패")}finally{setWorking(false)}};
   const label=loading?"Buy Engine 확인 중…":working?(added?"제거 중…":"등록 중…"):added?"Added · Remove from Buy Engine":"Add to Buy Engine";
   return <div className="candidate-actions"><button className={added?"remove-buy-button added":"send-buy-button"} disabled={disabled||loading||working} onClick={()=>void toggle()} aria-pressed={added}>{label}</button>{message&&<small className="send-result">{message}</small>}</div>;
 }
@@ -103,7 +109,6 @@ const num=(s:Snapshot|null,a:string,b:string)=>{const v=read(s,a,b);return typeo
 const str=(s:Snapshot|null,a:string,b:string)=>{const v=read(s,a,b);return typeof v==="string"?v:null};
 const find=(rows:Snapshot[],ticker:string)=>rows.find(s=>s.ticker===ticker)??null;
 const formatEps=(v:number|null)=>v===null?"산출 불가":`$${v.toFixed(2)}`;
-const formatSignedEps=(v:number|null)=>v===null?"산출 불가":`${v>=0?"+":"-"}$${Math.abs(v).toFixed(2)}`;
 const formatMoney=(v:number|null)=>v===null?"산출 불가":Math.abs(v)>=1e9?`$${(v/1e9).toFixed(2)}B`:`$${(v/1e6).toFixed(1)}M`;
 const pct=(v:number|null)=>v===null?"산출 불가":`${v>0?"+":""}${v.toFixed(1)}%`;
 const yoy=(v:number|null)=>v===null?"YoY 산출 불가":`YoY ${pct(v)}`;
@@ -125,25 +130,19 @@ const formatRatio=(v:number|null)=>v===null?"산출 불가":`${(v*100).toFixed(1
 const fundamentalSignal=(v:number|null,positive:string,negative:string)=>v===null?"비교값 대기":v>0?positive:v<0?negative:"변화 없음";
 const monthlyComparison=(v:number|null)=>v===null?"월간 비교값 대기":v>0?`전월 대비 +${v.toFixed(1)}%p`:v<0?`전월 대비 ${v.toFixed(1)}%p`:"전월 대비 유지";
 const rule40State=(s:Snapshot|null)=>{const value=num(s,"classic_rule_40","classicRule40");return value!==null&&value>=40?"PASS":"WARNING"};
-function fundamentalReasons(s:Snapshot|null){
-  if(!s)return[{label:"실데이터 수집 대기",mark:"·",tone:"neutral"}];
-  const forward=fy1Change3m(s)??fy1Change1m(s),growth=num(s,"revenue_yoy_pct","revenueYoyPct"),marginChange=num(s,"operating_margin_change_pp","operatingMarginChangePp"),cfo=num(s,"operating_cash_flow","operatingCashFlow");
-  return [
-    {label:forward===null?"Forward EPS 비교값 대기":forward>0?"Forward EPS 개선":"Forward EPS 약화",mark:forward===null?"·":forward>=0?"✓":"!",tone:toneClass(forward)},
-    {label:growth===null?"Revenue Growth 산출 대기":growth>0?"Revenue Growth 유지":"Revenue Growth 둔화",mark:growth===null?"·":growth>=0?"✓":"!",tone:toneClass(growth)},
-    {label:marginChange===null?"Operating Margin 비교값 대기":marginChange>=0?"Operating Margin 안정":"Operating Margin 약화",mark:marginChange===null?"·":marginChange>=0?"✓":"!",tone:toneClass(marginChange)},
-    {label:cfo===null?"Operating Cash Flow 산출 대기":cfo>=0?"Operating Cash Flow 확인":"Operating Cash Flow 음수",mark:cfo===null?"·":cfo>=0?"✓":"!",tone:toneClass(cfo)},
-  ];
-}
-function fundamentalOverview(rows:Snapshot[]){
-  const valid=rows.filter(Boolean),forward=valid.map(s=>fy1Change3m(s)??fy1Change1m(s)).filter((v):v is number=>v!==null),growth=valid.map(s=>num(s,"revenue_yoy_pct","revenueYoyPct")).filter((v):v is number=>v!==null),margins=valid.map(s=>num(s,"operating_margin_change_pp","operatingMarginChangePp")).filter((v):v is number=>v!==null),cash=valid.map(s=>num(s,"operating_cash_flow","operatingCashFlow")).filter((v):v is number=>v!==null);
-  const direction=(values:number[],positive:string,negative:string)=>values.length===0?{signal:"비교값 대기",detail:"월별 Snapshot 축적 필요",tone:"neutral"}:{signal:values.filter(v=>v>0).length>=values.filter(v=>v<0).length?positive:negative,detail:`${values.length}개 유효 기업 기준`,tone:values.reduce((a,b)=>a+b,0)>=0?"positive":"negative"};
-  return [
-    {label:"Forward EPS Trend",...direction(forward,"상향 우세","하향 우세")},
-    {label:"Revenue Growth Trend",...direction(growth,"성장 우세","둔화 우세")},
-    {label:"Operating Margin Trend",...direction(margins,"개선 우세","약화 우세")},
-    {label:"Operating Cash Flow Trend",...direction(cash,"현금 창출 우세","현금 유출 우세")},
-  ];
+function fundamentalOverview(rows:Snapshot[],universeSize:number){
+  const byTicker=new Map<string,Snapshot[]>();
+  for(const row of rows){const list=byTicker.get(row.ticker)??[];list.push(row);byTicker.set(row.ticker,list)}
+  const pairs=[...byTicker.values()].map(list=>list.slice().sort((a,b)=>(str(b,"snapshot_date","snapshotDate")??"").localeCompare(str(a,"snapshot_date","snapshotDate")??"")));
+  const required=(s:Snapshot)=>[["actual_trailing_revenue","actualTrailingRevenue"],["revenue_yoy_pct","revenueYoyPct"],["annual_fwd_eps_estimate","annualFwdEpsEstimate"],["operating_margin","operatingMargin"],["operating_cash_flow","operatingCashFlow"],["capital_expenditure","capitalExpenditure"]].every(([a,b])=>num(s,a,b)!==null)&&(read(s,"calculation_success","calculationSuccess")===1||read(s,"calculation_success","calculationSuccess")===true);
+  const classify=(label:string,values:(pair:Snapshot[])=>number|null)=>{const directions=pairs.map(values).filter((value):value is number=>value!==null),improving=directions.filter(value=>value>0).length,stable=directions.filter(value=>value===0).length,weakening=directions.filter(value=>value<0).length;const signal=!directions.length?"Snapshot 축적 중":improving>weakening&&improving>=stable?"개선 우세":weakening>improving&&weakening>=stable?"악화 우세":"혼조·유지";return{label,signal,tone:!directions.length?"neutral":signal==="개선 우세"?"positive":signal==="악화 우세"?"negative":"neutral",improving,stable,weakening,valid:directions.length}};
+  const delta=(pair:Snapshot[],a:string,b:string)=>pair.length<2?null:(num(pair[0],a,b)===null||num(pair[1],a,b)===null?null:(num(pair[0],a,b) as number)-(num(pair[1],a,b) as number));
+  return{validSnapshots:pairs.filter(pair=>pair[0]&&required(pair[0])).length,universeSize,indicators:[
+    classify("Forward EPS Trend",pair=>fy1Change3m(pair[0])??fy1Change1m(pair[0])),
+    classify("Revenue Growth Trend",pair=>delta(pair,"revenue_yoy_pct","revenueYoyPct")),
+    classify("Operating Margin Trend",pair=>delta(pair,"operating_margin","operatingMargin")),
+    classify("Operating Cash Flow Trend",pair=>delta(pair,"operating_cash_flow","operatingCashFlow")),
+  ]};
 }
 function aiExplanation(s:Snapshot|null){
   if(!s)return["분석 가능한 Snapshot을 기다리고 있습니다."];
@@ -162,13 +161,11 @@ const snapshotState=(p:PilotState,s:Snapshot|null)=>p.status==="loading"?"불러
 const dateTime=(v:string|null)=>v?new Intl.DateTimeFormat("ko-KR",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Seoul"}).format(new Date(v)):"기록 없음";
 const rankingStageLabel=(stage:RankingStage)=>stage==="three_month"?"4개 지표 · 3M 포함":stage==="one_month"?"3개 지표 · 1M 포함":"실제 성장 · 잠정";
 
-function LiveBanner({pilot}:{pilot:PilotState}){return <div className="scope-banner"><div><i className={pilot.snapshots.length?"connected":""}/>{originLabel(pilot)}</div><strong>Validation Universe: {companies.length} / Nasdaq 100</strong><span>{pilot.lastUpdated?`Updated ${dateTime(pilot.lastUpdated)}`:companies.map(company=>company.ticker).join(" · ")}</span></div>}
 function Heading(p:{eyebrow:string;title:string;description:string;badge:string}){return <div className="page-heading"><div><span>{p.eyebrow}</span><h1>{p.title}</h1><p>{p.description}</p></div><b>{p.badge}</b></div>}
 function Panel({eyebrow,title,badge}:{eyebrow:string;title:string;badge:string}){return <header className="structure-panel-header"><div><span>{eyebrow}</span><h2>{title}</h2></div><b>{badge}</b></header>}
 function Status({status}:{status:Company["status"]}){return <span className={`structure-status ${status.toLowerCase().replaceAll(" ","-")}`}>{status}</span>}
 function MetricCell({value,sub,tone}:{value:string;sub:string;tone:number|null}){return <td className="stacked-metric"><strong>{value}</strong><small className={toneClass(tone)}>{sub}</small></td>}
 function ResultCard({label,value,change,period,tone,epsBasis=false}:{label:string;value:string;change:string;period:string;tone:number|null;epsBasis?:boolean}){return <article><span>{label}{epsBasis&&<small className="metric-definition">GAAP diluted <EpsDefinition/></small>}</span><strong>{value}</strong><b className={toneClass(tone)}>{change}</b><small>{period}</small></article>}
-function MetricLine({label,value}:{label:string;value:string}){return <div><span>{label}</span><strong>{value}</strong></div>}
 function Info({label,value,note}:{label:string;value:string;note:string}){return <article className="metric-card"><div className="metric-label">{label}</div><div className="metric-value text-value">{value}</div><p>{note}</p></article>}
 function Abbr({short,full,ko}:{short:string;full:string;ko:string}){return <span className="abbreviation" title={`${full} · ${ko}`}><b>{short}</b><small>{full}<em>{ko}</em></small></span>}
 function EpsDefinition(){return <span className="metric-help" tabIndex={0} role="note" aria-label="GAAP diluted EPS 설명">?<span>미국 회계기준에 따른 희석 주당순이익입니다. 잠재 주식의 희석 효과를 반영하며 Non-GAAP EPS와 구분됩니다.</span></span>}
