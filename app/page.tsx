@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NASDAQ_100, NASDAQ_100_BY_TICKER } from "@/lib/nasdaq100";
 
-type View = "Fundamental Overview" | "Screener" | "Company Detail" | "Watchlist" | "Data Pilot";
+type View = "Fundamental Overview" | "Screener" | "Company Detail" | "Data Pilot";
 type Company = { ticker:string; company:string; sector:string; status:"Newly Selected"|"Continuing Improvement"|"Watch"|"Caution"|"Excluded"; reason:string };
 const companies: Company[] = [
   {ticker:"MU",company:"Micron Technology",sector:"Technology · Semiconductors",status:"Watch",reason:"3개월 검증 대상 · 경기순환 및 기저효과"},
@@ -12,14 +12,14 @@ const companies: Company[] = [
   {ticker:"PLTR",company:"Palantir Technologies",sector:"Technology · Software",status:"Watch",reason:"3개월 검증 대상 · 구조적 성장"},
   {ticker:"NVDA",company:"NVIDIA Corporation",sector:"Technology · Semiconductors",status:"Watch",reason:"3개월 검증 대상 · 대형 성장 및 GAAP 영향"},
 ];
-const icons:Record<View,string>={"Fundamental Overview":"⌂",Screener:"◎","Company Detail":"▤",Watchlist:"☆","Data Pilot":"↻"};
+const icons:Record<View,string>={"Fundamental Overview":"⌂",Screener:"◎","Company Detail":"▤","Data Pilot":"↻"};
 
 export default function Home(){
   const [view,setView]=useState<View>("Fundamental Overview"); const [ticker,setTicker]=useState("PLTR"); const [mobile,setMobile]=useState(false); const pilot=usePilot(); const overview=useOverview();
   const open=(next:string)=>{setTicker(next);setView("Company Detail");setMobile(false)};
   return <main className="structure-shell"><aside className={`main-nav ${mobile?"open":""}`}><div className="nav-brand"><span>F</span><div><strong>Fundamental Flow</strong><small>Investment Philosophy v1.1</small></div></div><nav aria-label="주요 화면">{(Object.keys(icons) as View[]).map(item=><button key={item} className={view===item?"active":""} onClick={()=>{setView(item);setMobile(false)}}><i>{icons[item]}</i><span>{item}</span>{item==="Data Pilot"&&<b>LIVE</b>}</button>)}</nav><div className="nav-philosophy"><span>OUR PHILOSOPHY</span><p>우리는 주가를 추종하지 않는다.<br/><strong>기업의 변화를 추적한다.</strong></p></div><div className="pilot-indicator"><i/> Validation Universe: {companies.length} / Nasdaq 100</div></aside>
     <section className="structure-workspace"><header className="structure-header"><button className="menu-button" onClick={()=>setMobile(!mobile)} aria-label="메뉴 열기">☰</button><div><span>{view}</span><small>Actual Growth · Next FY Consensus</small></div><button className="header-search" onClick={()=>setView("Screener")}>⌕ <span>기업 검색</span></button></header>
-      {view==="Fundamental Overview"&&<Dashboard overview={overview}/>} {view==="Screener"&&<Screener open={open}/>} {view==="Company Detail"&&<Detail pilot={pilot} ticker={ticker}/>} {view==="Watchlist"&&<Watchlist open={open}/>} {view==="Data Pilot"&&<DataPilot pilot={pilot} open={open}/>}</section>{mobile&&<button className="nav-overlay" aria-label="메뉴 닫기" onClick={()=>setMobile(false)}/>}</main>;
+      {view==="Fundamental Overview"&&<Dashboard overview={overview}/>} {view==="Screener"&&<Screener open={open}/>} {view==="Company Detail"&&<Detail pilot={pilot} ticker={ticker}/>} {view==="Data Pilot"&&<DataPilot pilot={pilot} open={open}/>}</section>{mobile&&<button className="nav-overlay" aria-label="메뉴 닫기" onClick={()=>setMobile(false)}/>}</main>;
 }
 
 function Dashboard({overview}:{overview:OverviewState}){
@@ -61,7 +61,6 @@ function Detail({pilot,ticker}:{pilot:PilotState;ticker:string}){
     <section className="abbreviation-guide"><span>약어 안내</span><Abbr short="EPS" full="Earnings per Share" ko="주당순이익"/><Abbr short="YoY" full="Year over Year" ko="전년 동기 대비"/><Abbr short="Next FY" full="Next Fiscal Year" ko="현재 회계연도 다음 회계연도"/><Abbr short="FCF" full="Free Cash Flow" ko="잉여현금흐름"/></section></div>;
 }
 
-function Watchlist({open}:{open:(t:string)=>void}){return <div className="structure-content"><Heading eyebrow="PERSONAL MONITORING" title="Watchlist" description="저장 기능을 연결하기 전 샘플 관심기업 화면입니다. 실제 포트폴리오가 아닙니다." badge="SAMPLE"/><div className="watchlist-grid">{companies.slice(0,2).map(c=><button key={c.ticker} onClick={()=>open(c.ticker)}><span className="ticker-avatar">{c.ticker.slice(0,2)}</span><div><strong>{c.ticker}</strong><p>{c.company}</p></div><small>SAMPLE · 저장되지 않음</small></button>)}</div></div>}
 
 function DataPilot({pilot,open}:{pilot:PilotState;open:(ticker:string)=>void}){const missing=pilot.snapshots.filter(s=>missingList(read(s,"missing_fields","missingFields")).length).length;return <main className="app-shell"><header className="topbar"><div className="brand"><span className="brand-mark">F</span><span>Fundamental Flow</span><span className="mvp-badge">FMP PILOT</span></div><span className={`api-pill ${pilot.status}`}><i/>{statusLabel[pilot.status]}</span></header><section className="content"><div className="hero-row"><div><p className="eyebrow">ACTUAL GROWTH · NEXT FY CONSENSUS</p><h1>재무 데이터 API 파일럿</h1><p className="subtitle">기업별 최신 수집 상태를 관리합니다. 과거 스냅샷은 각 기업의 이력 보기에서 확인합니다.</p></div><button className="sync-button" onClick={pilot.refresh} disabled={pilot.refreshing||pilot.status==="key_missing"}><span className={pilot.refreshing?"spinning":""}>↻</span>{pilot.refreshing?"수집 중…":"지금 업데이트"}</button></div>
     <section className="connection-panel"><div className="connection-main"><span className={`connection-icon ${pilot.snapshots.length?"live":""}`}>{pilot.snapshots.length?"✓":"!"}</span><div><strong>Financial Modeling Prep</strong><p>{statusLabel[pilot.status]} · 서버 측 보안 연결</p></div></div><div className="connection-stat"><span>검증 유니버스</span><strong>{companies.length}개 종목</strong></div><div className="connection-stat"><span>마지막 업데이트</span><strong>{dateTime(pilot.lastUpdated)}</strong></div><div className="connection-stat"><span>데이터 누락</span><strong>{missing}개 기업</strong></div></section>
