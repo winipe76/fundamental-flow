@@ -2,7 +2,7 @@
 
 > 문서 버전: 1.0  
 > 기준일: 2026-08-22  
-> 기능 기준 배포 버전: Sites Version 30
+> 기능 기준 배포 버전: Sites Version 31
 > 투자 철학: Investment Philosophy v1.1  
 > FMP Mapping: `FMP Mapping v1.1`
 
