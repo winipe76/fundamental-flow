@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
-import { TEST_TICKERS } from "@/lib/fmp";
 import { NASDAQ_100, NASDAQ_100_TICKERS } from "@/lib/nasdaq100";
-import { collectAndStoreTicker } from "@/lib/snapshot-store";
+import { runNasdaq100Collection } from "@/lib/collection-run";
 
 export const dynamic = "force-dynamic";
 type RuntimeEnv = { DB?: D1Database; FMP_API_KEY?: string };
@@ -44,19 +43,20 @@ export async function GET(request: Request) {
     }
     if (historyTicker) {
       if (!NASDAQ_100_TICKERS.includes(historyTicker)) return json({ status: "invalid_ticker", history: [] }, 400);
-      const history = await runtime.DB.prepare(`
-        SELECT * FROM fundamental_snapshots WHERE ticker=? ORDER BY snapshot_date DESC LIMIT 60
-      `).bind(historyTicker).all();
-      return json({ status: "connected", ticker: historyTicker, history: history.results });
+      const [history, earnings] = await Promise.all([
+        runtime.DB.prepare(`SELECT * FROM fundamental_snapshots WHERE ticker=? ORDER BY snapshot_date DESC LIMIT 60`).bind(historyTicker).all(),
+        runtime.DB.prepare(`SELECT * FROM earnings_events WHERE ticker=? ORDER BY earnings_date DESC LIMIT 12`).bind(historyTicker).all(),
+      ]);
+      return json({ status: "connected", ticker: historyTicker, history: history.results, earnings: earnings.results });
     }
-    const placeholders = TEST_TICKERS.map(() => "?").join(",");
+    const placeholders = NASDAQ_100_TICKERS.map(() => "?").join(",");
     const latest = await runtime.DB.prepare(`
       SELECT s.* FROM fundamental_snapshots s
       INNER JOIN (
         SELECT ticker, MAX(snapshot_date) snapshot_date FROM fundamental_snapshots
         WHERE ticker IN (${placeholders}) GROUP BY ticker
       ) x ON x.ticker=s.ticker AND x.snapshot_date=s.snapshot_date ORDER BY s.ticker
-    `).bind(...TEST_TICKERS).all();
+    `).bind(...NASDAQ_100_TICKERS).all();
     const latestSuccessful = await runtime.DB.prepare(`
       SELECT MAX(collected_at) collected_at FROM fundamental_snapshots
       WHERE ticker IN (${placeholders})
@@ -64,14 +64,14 @@ export async function GET(request: Request) {
         AND next_fy_eps IS NOT NULL AND operating_margin IS NOT NULL
         AND operating_cash_flow IS NOT NULL AND capital_expenditure IS NOT NULL
         AND calculation_success=1
-    `).bind(...TEST_TICKERS).first<{ collected_at: string | null }>();
+    `).bind(...NASDAQ_100_TICKERS).first<{ collected_at: string | null }>();
     const classifications = await runtime.DB.prepare(`SELECT * FROM fundamental_classifications WHERE ticker IN (${placeholders}) ORDER BY ticker`)
-      .bind(...TEST_TICKERS).all();
+      .bind(...NASDAQ_100_TICKERS).all();
     const rows = latest.results;
     const hasPartial = rows.some((row) => row.collection_status === "partial");
     return json({
       configured: Boolean(runtime.FMP_API_KEY), status: runtime.FMP_API_KEY ? (hasPartial ? "partial" : "connected") : "key_missing",
-      tickers: TEST_TICKERS, lastUpdated: rows[0]?.collected_at ?? null,
+      tickers: NASDAQ_100_TICKERS, lastUpdated: rows[0]?.collected_at ?? null,
       lastSuccessfulUpdate: latestSuccessful?.collected_at ?? null, snapshots: rows, history: [], classifications: classifications.results,
       validations: rows.map(row=>validation(row)),
     });
@@ -83,18 +83,6 @@ export async function GET(request: Request) {
 export async function POST() {
   if (!runtime.FMP_API_KEY) return json({ status: "key_missing", message: "FMP_API_KEY is not configured." }, 503);
   if (!runtime.DB) return json({ status: "database_unavailable" }, 503);
-  const snapshotDate = new Date().toISOString().slice(0, 10);
-  const collectedAt = new Date().toISOString();
-  const results = [];
-
-  for (const ticker of TEST_TICKERS) {
-    try {
-      results.push(await collectAndStoreTicker(runtime.DB, ticker, runtime.FMP_API_KEY, snapshotDate, collectedAt));
-    } catch (error) {
-      results.push({ ticker, snapshotDate, collectionStatus: "failed", error: error instanceof Error ? error.message : "Collection failed" });
-    }
-  }
-  const status = results.some((item) => item.collectionStatus === "failed") ? "error"
-    : results.some((item) => item.collectionStatus === "partial") ? "partial" : "connected";
-  return json({ status, lastUpdated: collectedAt, results, validations: results.map(item=>validation(item as unknown as Record<string,unknown>)) });
+  const result = await runNasdaq100Collection(runtime.DB, runtime.FMP_API_KEY);
+  return json({ status: result.status === "completed" ? "connected" : result.status, lastUpdated: result.completedAt, run: result });
 }

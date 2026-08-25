@@ -5,11 +5,12 @@ import fs from "node:fs";
 const fmp=fs.readFileSync("lib/fmp.ts","utf8");
 const store=fs.readFileSync("lib/snapshot-store.ts","utf8");
 const math=fs.readFileSync("lib/fundamental-math.ts","utf8");
-const rankings=fs.readFileSync("app/api/rankings/route.ts","utf8");
+const collection=fs.readFileSync("lib/collection-run.ts","utf8");
 
-test("limits FMP Phase 1 collection in the requested order",()=>{
+test("retains the verified Phase 1 tickers and expands collection to Nasdaq 100",()=>{
   assert.match(fmp,/TEST_TICKERS\s*=\s*\["PLTR",\s*"NVDA",\s*"MU"\]/);
-  assert.match(rankings,/const tickers = \[\.\.\.TEST_TICKERS\]/);
+  assert.match(collection,/NASDAQ_100_TICKERS/);
+  assert.match(collection,/COLLECTION_CONCURRENCY = 3/);
 });
 
 test("maps all six raw fields and documents Next FY Forward EPS",()=>{

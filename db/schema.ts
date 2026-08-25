@@ -28,6 +28,7 @@ export const apiPayloads = sqliteTable("api_payloads", {
   responseJson: text("response_json"),
   errorMessage: text("error_message"),
   fetchedAt: text("fetched_at").notNull(),
+  requestAttempts: integer("request_attempts").notNull().default(1),
 }, (table) => [
   index("idx_api_payloads_ticker_date").on(table.ticker, table.snapshotDate),
   uniqueIndex("idx_api_payloads_ticker_date_endpoint").on(table.ticker, table.snapshotDate, table.endpoint),
@@ -110,3 +111,59 @@ export const fundamentalClassifications = sqliteTable("fundamental_classificatio
   updatedAt: text("updated_at").notNull(),
   sourceSnapshotDate: text("source_snapshot_date"),
 }, (table) => [index("idx_fundamental_classifications_stage_updated").on(table.stage, table.updatedAt)]);
+
+/** One durable Nasdaq-100 collection execution. */
+export const collectionRuns = sqliteTable("collection_runs", {
+  id: text("id").primaryKey(),
+  startedAt: text("started_at").notNull(),
+  completedAt: text("completed_at"),
+  status: text("status", { enum: ["running", "completed", "partial", "failed"] }).notNull(),
+  totalCount: integer("total_count").notNull(),
+  successCount: integer("success_count").notNull().default(0),
+  partialCount: integer("partial_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  retryCount: integer("retry_count").notNull().default(0),
+  apiRequestCount: integer("api_request_count").notNull().default(0),
+  apiRetryCount: integer("api_retry_count").notNull().default(0),
+}, (table) => [index("idx_collection_runs_started").on(table.startedAt)]);
+
+/** Per-ticker status makes failed companies auditable and retryable. */
+export const collectionRunItems = sqliteTable("collection_run_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  runId: text("run_id").notNull(),
+  ticker: text("ticker").notNull(),
+  status: text("status", { enum: ["pending", "success", "partial", "failed"] }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  errorMessage: text("error_message"),
+  snapshotDate: text("snapshot_date").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_collection_run_items_run_ticker").on(table.runId, table.ticker),
+  index("idx_collection_run_items_status").on(table.runId, table.status),
+]);
+
+/** Earnings are stored independently and never alter the current scoring inputs. */
+export const earningsEvents = sqliteTable("earnings_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ticker: text("ticker").notNull(),
+  earningsDate: text("earnings_date").notNull(),
+  actualRevenue: real("actual_revenue"),
+  revenueConsensus: real("revenue_consensus"),
+  revenueSurprise: real("revenue_surprise"),
+  revenueSurprisePct: real("revenue_surprise_pct"),
+  actualEps: real("actual_eps"),
+  epsConsensus: real("eps_consensus"),
+  epsSurprise: real("eps_surprise"),
+  epsSurprisePct: real("eps_surprise_pct"),
+  managementRevenueGuidance: text("management_revenue_guidance"),
+  epsGuidance: text("eps_guidance"),
+  marginGuidance: text("margin_guidance"),
+  guidancePeriod: text("guidance_period"),
+  guidanceAnnouncementDate: text("guidance_announcement_date"),
+  sourceEndpoint: text("source_endpoint").notNull(),
+  sourceLastUpdated: text("source_last_updated"),
+  collectedAt: text("collected_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_earnings_events_ticker_date").on(table.ticker, table.earningsDate),
+  index("idx_earnings_events_date").on(table.earningsDate),
+]);

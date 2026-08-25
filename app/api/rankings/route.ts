@@ -1,8 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NASDAQ_100, NASDAQ_100_TICKERS, NASDAQ_100_BY_TICKER } from "@/lib/nasdaq100";
 import { rankSnapshots } from "@/lib/ranking";
-import { collectAndStoreTicker } from "@/lib/snapshot-store";
-import { TEST_TICKERS } from "@/lib/fmp";
+import { runNasdaq100Collection } from "@/lib/collection-run";
 
 export const dynamic = "force-dynamic";
 type RuntimeEnv = { DB?: D1Database; FMP_API_KEY?: string };
@@ -58,27 +57,6 @@ export async function GET() {
 export async function POST() {
   if (!runtime.FMP_API_KEY) return json({ status: "key_missing" }, 503);
   if (!runtime.DB) return json({ status: "database_unavailable" }, 503);
-  const batchSize = TEST_TICKERS.length;
-  const totalBatches = 1;
-  const batch = 0;
-  const tickers = [...TEST_TICKERS];
-  const snapshotDate = new Date().toISOString().slice(0, 10);
-  const collectedAt = new Date().toISOString();
-  const results = [];
-  for (const ticker of tickers) {
-    try {
-      results.push(await collectAndStoreTicker(runtime.DB, ticker, runtime.FMP_API_KEY, snapshotDate, collectedAt));
-    } catch (error) {
-      results.push({ ticker, snapshotDate, collectionStatus: "failed", error: error instanceof Error ? error.message : "Collection failed" });
-    }
-  }
-  return json({
-    status: results.some((row) => row.collectionStatus === "failed") ? "partial" : "connected",
-    batch,
-    batchSize,
-    totalBatches,
-    processed: tickers.length,
-    universeSize: NASDAQ_100.length,
-    results,
-  });
+  const result = await runNasdaq100Collection(runtime.DB, runtime.FMP_API_KEY);
+  return json({ status: result.status === "completed" ? "connected" : result.status, universeSize: NASDAQ_100.length, run: result });
 }

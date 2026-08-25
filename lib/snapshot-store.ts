@@ -11,10 +11,28 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
   const collected = await collectTicker(ticker, apiKey, snapshotDate);
   for (const raw of collected.raw) {
     await db.prepare(`INSERT INTO api_payloads
-      (ticker,snapshot_date,endpoint,http_status,response_json,error_message,fetched_at) VALUES (?,?,?,?,?,?,?)
+      (ticker,snapshot_date,endpoint,http_status,response_json,error_message,fetched_at,request_attempts) VALUES (?,?,?,?,?,?,?,?)
       ON CONFLICT(ticker,snapshot_date,endpoint) DO UPDATE SET
-      http_status=excluded.http_status,response_json=excluded.response_json,error_message=excluded.error_message,fetched_at=excluded.fetched_at`
-    ).bind(ticker, snapshotDate, raw.endpoint, raw.status, JSON.stringify(raw.data), raw.error, collectedAt).run();
+      http_status=excluded.http_status,response_json=excluded.response_json,error_message=excluded.error_message,
+      fetched_at=excluded.fetched_at,request_attempts=excluded.request_attempts`
+    ).bind(ticker, snapshotDate, raw.endpoint, raw.status, JSON.stringify(raw.data), raw.error, collectedAt, raw.attempts).run();
+  }
+  for (const event of collected.earningsEvents) {
+    await db.prepare(`INSERT INTO earnings_events (
+      ticker,earnings_date,actual_revenue,revenue_consensus,revenue_surprise,revenue_surprise_pct,
+      actual_eps,eps_consensus,eps_surprise,eps_surprise_pct,management_revenue_guidance,eps_guidance,
+      margin_guidance,guidance_period,guidance_announcement_date,source_endpoint,source_last_updated,collected_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(ticker,earnings_date) DO UPDATE SET
+      actual_revenue=excluded.actual_revenue,revenue_consensus=excluded.revenue_consensus,
+      revenue_surprise=excluded.revenue_surprise,revenue_surprise_pct=excluded.revenue_surprise_pct,
+      actual_eps=excluded.actual_eps,eps_consensus=excluded.eps_consensus,eps_surprise=excluded.eps_surprise,
+      eps_surprise_pct=excluded.eps_surprise_pct,source_last_updated=excluded.source_last_updated,collected_at=excluded.collected_at`
+    ).bind(
+      event.ticker,event.earningsDate,event.actualRevenue,event.revenueConsensus,event.revenueSurprise,event.revenueSurprisePct,
+      event.actualEps,event.epsConsensus,event.epsSurprise,event.epsSurprisePct,null,null,null,null,null,
+      "FMP /stable/earnings",event.sourceLastUpdated,collectedAt,
+    ).run();
   }
   const oneMonth = await db.prepare(`SELECT next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
     WHERE ticker=? AND snapshot_date>=date(?,'start of month','-1 month')
@@ -118,5 +136,6 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     updated_at=excluded.updated_at,source_snapshot_date=excluded.source_snapshot_date`
   ).bind(ticker,classification.stage,classification.reason,"fundamental-stage-v2",collectedAt,collectedAt,snapshotDate).run();
   return { ...value, freeCashFlow: derived?.freeCashFlow ?? null, fcfMargin: derived === null ? null : derived.freeCashFlowMargin / 100,
-    derived, calculationSuccess, nextFyRevision1m, nextFyRevision3m, snapshotDate, classification };
+    derived, calculationSuccess, nextFyRevision1m, nextFyRevision3m, snapshotDate, classification,
+    apiRequestCount: collected.raw.length, apiRetryCount: collected.raw.reduce((total, raw) => total + Math.max(0, raw.attempts - 1), 0) };
 }

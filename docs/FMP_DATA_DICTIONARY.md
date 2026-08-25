@@ -4,12 +4,12 @@
 
 | Item | Value |
 | --- | --- |
-| Data Dictionary Version | 1.1 |
+| Data Dictionary Version | 1.2 |
 | Mapping Version | FMP Mapping v1.1 |
-| Verified Date | 2026-08-22 |
+| Verified Date | 2026-08-25 |
 | Verified Companies | PLTR, NVDA, MU |
 | API Version | FMP Stable API (`/stable`) |
-| Last Updated | 2026-08-22 |
+| Last Updated | 2026-08-25 |
 | Status | Official project reference |
 
 This document is the single source of truth for FMP fields currently consumed by Fundamental Flow. It covers source fields, normalized Monthly Snapshot fields, calculated fields, validation metadata, and Snapshot Quality. A field is not approved for production mapping merely because it appears in an FMP response.
@@ -19,8 +19,34 @@ Verification used actual responses from all three Phase 1 companies for these re
 - `GET https://financialmodelingprep.com/stable/income-statement?symbol={ticker}&period=quarter&limit=8`
 - `GET https://financialmodelingprep.com/stable/cash-flow-statement?symbol={ticker}&period=quarter&limit=4`
 - `GET https://financialmodelingprep.com/stable/analyst-estimates?symbol={ticker}&period=annual&page=0&limit=10`
+- `GET https://financialmodelingprep.com/stable/earnings?symbol={ticker}&limit=12`
 
 All PLTR examples below come from the actual response observed on the Verified Date. Monetary values are stored as raw USD, not pre-scaled to millions or billions.
+
+The Earnings response was separately verified for PLTR, NVDA, and MU on 2026-08-25. All three returned exactly these keys: `symbol`, `date`, `epsActual`, `epsEstimated`, `revenueActual`, `revenueEstimated`, and `lastUpdated`. No structured Management Revenue Guidance, EPS Guidance, Margin Guidance, guidance target period, or guidance announcement date field was present. Those internal fields therefore remain nullable and are never inferred from analyst estimates.
+
+## Earnings and Guidance Mapping
+
+| API Endpoint | Raw Field | Internal Field | Data Type | Nullable | Required | Formula / Transformation | Unit | Snapshot Source | Validation Rule | PLTR Example |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Earnings Report | `symbol` | `ticker` | string | No | Yes | Uppercase symbol | Ticker | FMP Earnings | Must match the requested Nasdaq 100 ticker | `PLTR` |
+| Earnings Report | `date` | `earnings_date` | date | No | Yes | Direct mapping | ISO date | FMP Earnings | Non-empty date required; ticker + date is unique | `2026-08-03` |
+| Earnings Report | `revenueActual` | `actual_revenue` | number | Yes | No | Safe numeric mapping | USD | FMP Earnings | Null, empty, invalid, or non-finite values remain null | `1,935,464,000` |
+| Earnings Report | `revenueEstimated` | `revenue_consensus` | number | Yes | No | Safe numeric mapping | USD | FMP Earnings | Null, empty, invalid, or non-finite values remain null | `1,812,280,000` |
+| Internal Calculation | `revenueActual`, `revenueEstimated` | `revenue_surprise` | number | Yes | No | Actual Revenue − Revenue Consensus | USD | Earnings calculation | Both inputs must be finite | `123,184,000` |
+| Internal Calculation | `revenueActual`, `revenueEstimated` | `revenue_surprise_pct` | number | Yes | No | `(Actual / Consensus − 1) × 100` | % | Earnings calculation | Consensus must be finite and non-zero | `6.797%` |
+| Earnings Report | `epsActual` | `actual_eps` | number | Yes | No | Safe numeric mapping | USD/share | FMP Earnings | Null, empty, invalid, or non-finite values remain null | `0.41` |
+| Earnings Report | `epsEstimated` | `eps_consensus` | number | Yes | No | Safe numeric mapping | USD/share | FMP Earnings | Null, empty, invalid, or non-finite values remain null | `0.3446` |
+| Internal Calculation | `epsActual`, `epsEstimated` | `eps_surprise` | number | Yes | No | Actual EPS − EPS Consensus | USD/share | Earnings calculation | Both inputs must be finite | `0.0654` |
+| Internal Calculation | `epsActual`, `epsEstimated` | `eps_surprise_pct` | number | Yes | No | `(Actual / Consensus − 1) × 100` | % | Earnings calculation | Consensus must be finite and non-zero | `18.9797%` |
+| Earnings Report | `lastUpdated` | `source_last_updated` | date | Yes | No | Direct mapping | ISO date | FMP Earnings | Must be a string when present | `2026-08-25` |
+| No verified FMP field | n/a | `management_revenue_guidance` | string | Yes | No | No mapping; store null | Text | Future verified source | Must remain null until an actual source field is verified | `null` |
+| No verified FMP field | n/a | `eps_guidance` | string | Yes | No | No mapping; store null | Text | Future verified source | Must remain null until an actual source field is verified | `null` |
+| No verified FMP field | n/a | `margin_guidance` | string | Yes | No | No mapping; store null | Text | Future verified source | Must remain null until an actual source field is verified | `null` |
+| No verified FMP field | n/a | `guidance_period` | string | Yes | No | No mapping; store null | Fiscal period | Future verified source | Must remain null until an actual source field is verified | `null` |
+| No verified FMP field | n/a | `guidance_announcement_date` | date | Yes | No | No mapping; store null | ISO date | Future verified source | Must remain null until an actual source field is verified | `null` |
+
+Earnings and Guidance fields are stored in `earnings_events`, not `fundamental_snapshots`. They are excluded from Calculation Engine, Screening, Ranking, and Score inputs during the observation period.
 
 ## Definitions of the Six Required Raw Metrics
 
@@ -222,6 +248,13 @@ This compact table contains every FMP raw field consumed by production mapping. 
 | Cash Flow | `operatingCashFlow` | `operatingCashFlow` | Sum latest four quarters | Yes |
 | Cash Flow | `capitalExpenditure` | `capitalExpenditure` | Absolute value of four-quarter sum | Yes |
 | Cash Flow | `freeCashFlow` | Source FCF comparison | Sum latest four quarters | No |
+| Earnings Report | `symbol` | `ticker` | Requested ticker match | Yes |
+| Earnings Report | `date` | `earnings_date` | Direct mapping | Yes |
+| Earnings Report | `revenueActual` | `actual_revenue` | Safe numeric mapping | No |
+| Earnings Report | `revenueEstimated` | `revenue_consensus` | Safe numeric mapping | No |
+| Earnings Report | `epsActual` | `actual_eps` | Safe numeric mapping | No |
+| Earnings Report | `epsEstimated` | `eps_consensus` | Safe numeric mapping | No |
+| Earnings Report | `lastUpdated` | `source_last_updated` | Direct mapping | No |
 
 ## Validation Rules
 
@@ -263,6 +296,7 @@ This compact table contains every FMP raw field consumed by production mapping. 
 ### API Failure
 
 - Each request has a 12-second timeout.
+- HTTP 429 and 5xx responses are retried up to three total attempts with bounded exponential backoff. A valid `Retry-After` response header takes precedence.
 - HTTP non-success responses store the HTTP status, raw body when available, and an error message in the immutable API payload table.
 - Network and timeout failures store a null HTTP status and an error message.
 - If all three endpoint requests fail, `collection_status = failed`.
@@ -310,7 +344,7 @@ Quality below 80 triggers the AI caution flag. Quality is data completeness, not
 
 ## Maintenance Procedure
 
-1. Inspect actual responses for PLTR, NVDA, and MU.
+1. Inspect actual responses for PLTR, NVDA, and MU, including the Earnings endpoint before adding any Earnings or Guidance mapping.
 2. Compare raw keys, types, nullability, fiscal dates, periods, and currency with this dictionary.
 3. Update this document before changing production mapping.
 4. Add or update mapping and validation tests.

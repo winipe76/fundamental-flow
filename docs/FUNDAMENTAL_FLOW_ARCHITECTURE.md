@@ -2,8 +2,7 @@
 
 > 문서 버전: 1.0  
 > 기준일: 2026-08-22  
-> 기능 기준 배포 버전: Sites Version 28  
-> 문서 반영 버전: Sites Version 29 (기능 변경 없음)  
+> 기능 기준 배포 버전: Sites Version 30
 > 투자 철학: Investment Philosophy v1.1  
 > FMP Mapping: `FMP Mapping v1.1`
 
@@ -57,17 +56,17 @@ Watchlist 메뉴와 관련 샘플 UI는 Version 28에서 제거됐다.
 |---|---|---|
 | Nasdaq 100 메타데이터 | 구현됨 | 100개 기업의 ticker, name, sector 보유 |
 | Nasdaq 100 전체 검색 | 구현됨 | Screener 검색에서 조건 충족 여부와 무관하게 조회 가능 |
-| FMP 실제 수집 | 파일럿 | `PLTR`, `NVDA`, `MU`만 수집 |
+| FMP 실제 수집 | 구현됨 | Nasdaq 100 전체를 concurrency 3으로 수집 |
 | Monthly Snapshot | 구현됨 | ticker + snapshot date 기준 저장 |
 | 원본 API 응답 보존 | 구현됨 | endpoint별 payload를 별도 저장 |
 | 계산 엔진 | 구현됨 | UI와 분리된 순수 계산 함수 사용 |
 | Validation Layer | 구현됨 | 누락, 통화, 기간, FCF 차이 검증 |
 | Screening Engine | 구현됨 | 5개 분류와 configurable threshold 제공 |
-| Nasdaq 100 전체 자동 수집 | 미구현 | Ranking 갱신도 현재 3개 파일럿만 호출 |
+| Nasdaq 100 전체 자동 수집 | 구현됨 | run 및 ticker별 상태, 429/5xx retry, 실패 ticker 재수집 기록 |
 | 규칙 기반 AI 설명 | 구현됨 | 매수·매도 추천 없이 설명 생성 |
 | Buy Engine 연동 | 구조 구현됨 | 별도 Buy Engine URL과 동기화 토큰이 필요 |
 | Portfolio persistence | 미구현 | 향후 구조만 고려된 상태 |
-| Earnings Call / Guidance / Thesis Tracking | 미구현 | 화면에 향후 영역 안내만 존재 |
+| Earnings / Guidance | 부분 구현 | 구조화 Earnings 저장·표시 완료, FMP에 검증된 Guidance 필드가 없어 null 유지 |
 
 ---
 
@@ -132,8 +131,8 @@ Cloudflare D1
 |---|---|
 | `app/page.tsx` | 네 개 화면, UI 상태, API 호출 hook, 규칙 기반 설명 |
 | `app/globals.css` | 현재 대시보드 디자인과 반응형 스타일 |
-| `app/api/fundamentals/route.ts` | Snapshot 조회, Overview 조회, 기업 이력 조회, 파일럿 수집 |
-| `app/api/rankings/route.ts` | 최신 Snapshot Ranking 조회 및 파일럿 갱신 |
+| `app/api/fundamentals/route.ts` | Snapshot·Overview·기업 이력·Earnings 조회 및 전체 수집 |
+| `app/api/rankings/route.ts` | 최신 Snapshot Ranking 조회 및 Nasdaq 100 갱신 |
 | `app/api/fundamental-classifications/route.ts` | 5단계 Fundamental 분류 조회 |
 | `app/api/buy-engine/candidates/route.ts` | Buy Engine 후보 상태 확인·등록·제거 프록시 |
 | `lib/fmp.ts` | FMP 호출, 원본 필드 선택, 정규화 |
@@ -182,7 +181,7 @@ Primary Indicator는 다음 네 개다.
 화면에서 제공하는 기능은 다음과 같다.
 
 - 최신 수집 범위와 Ranking 단계 표시
-- 파일럿 데이터 갱신
+- Nasdaq 100 전체 데이터 갱신
 - 조건 충족 기업의 Ranking 표시
 - 행 전체 클릭 또는 키보드 Enter/Space로 Company Detail 이동
 - Nasdaq 100 전체 ticker 또는 회사명 검색
@@ -214,11 +213,11 @@ Supporting Indicators:
 - 최근 Snapshot의 규칙 기반 설명
 - Snapshot 저장 이력
 - Buy Engine 등록 또는 제거
-- Earnings Call, Guidance, Thesis Tracking의 향후 구조 안내
+- 구조화 Earnings와 nullable Management Guidance
 
 ### 5.4 Data Pilot
 
-실제 FMP 연결 상태를 확인하고 파일럿 세 기업을 갱신하는 운영 화면이다.
+실제 FMP 연결 상태를 확인하고 Nasdaq 100 전체 기업을 갱신하는 운영 화면이다.
 
 - API 연결 상태
 - 최신·최근 성공 업데이트 시각
@@ -232,13 +231,7 @@ Supporting Indicators:
 
 ### 수집 대상
 
-현재 순서는 고정돼 있다.
-
-```text
-PLTR → NVDA → MU
-```
-
-Nasdaq 100 전체 목록은 검색과 조회 범위에 존재하지만 실제 POST 수집은 위 세 기업만 실행한다.
+수집 대상은 `NASDAQ_100_TICKERS`의 100개 전체다. 동시에 최대 3개 ticker를 처리하며, HTTP 429·5xx는 endpoint별 최대 3회 시도한다. 첫 실행에서 최종 실패한 ticker는 run 안에서 1회 재수집한다.
 
 ### 호출 Endpoint
 
@@ -647,7 +640,7 @@ ticker별 최신 5단계 분류, 사유, 분류 버전, 기준 Snapshot date를 
 | Buy Engine timeout·network 실패 | API 502 계열 상태 반환 |
 | 잘못된 Nasdaq ticker | history API 400 |
 
-기업 하나의 수집 실패가 나머지 파일럿 기업 수집을 중단시키지 않도록 ticker별 예외를 분리한다.
+기업 하나의 수집 실패가 나머지 기업 수집을 중단시키지 않도록 ticker별 예외를 분리한다. `collection_runs`와 `collection_run_items`에 run 및 ticker별 상태를 기록한다.
 
 ---
 
@@ -657,7 +650,9 @@ ticker별 최신 5단계 분류, 사유, 분류 버전, 기준 Snapshot date를 
 
 - Buy Engine 전달 계약과 단일 toggle 상태
 - FMP Data Dictionary 필드·버전
-- Phase 1 세 기업과 6개 필수 Raw Data
+- Phase 1 검증 기업과 6개 필수 Raw Data
+- Nasdaq 100 concurrency, retry, run 상태 및 중복 방지
+- 구조화 Earnings와 nullable Guidance
 - Current FY / exact Next FY 선택
 - Fiscal rollover와 동일 estimate fiscal date 비교
 - 1M·3M revision의 null 처리
@@ -672,7 +667,7 @@ ticker별 최신 5단계 분류, 사유, 분류 버전, 기준 Snapshot date를 
 - 규칙 기반 설명의 비추천 원칙
 - Watchlist 제거 상태
 
-Version 28 기준 자동 테스트 수는 55개다.
+Version 30 기준 자동 테스트 수는 60개다.
 
 ---
 
@@ -680,11 +675,11 @@ Version 28 기준 자동 테스트 수는 55개다.
 
 다음은 현재 코드에서 확인된 사실이다.
 
-1. **실제 수집은 세 기업만 수행한다.** Nasdaq 100 전체 검색과 DB 조회 구조는 있지만 POST collection은 `TEST_TICKERS`만 순회한다.
-2. **Screener의 갱신 문구와 실제 범위가 다르다.** UI에는 `Nasdaq 100 업데이트`로 표시되지만 실제 갱신 대상은 PLTR, NVDA, MU다.
-3. **Sidebar의 Validation Universe는 실제 DB coverage가 아니다.** UI에 정의된 5개 샘플 회사 배열의 길이를 표시한다.
+1. **전체 수집은 한 번에 최대 400개의 기본 FMP 요청을 사용한다.** 회사별 Fundamental 3개와 Earnings 1개이며 retry 시 증가한다.
+2. **Management Guidance 구조화 필드는 확인되지 않았다.** FMP Earnings 응답에 없는 값을 추정하지 않고 null로 저장한다.
+3. **Sidebar coverage는 최신 Snapshot 보유 기업 수다.** 완전한 Snapshot Quality나 비교 가능 기업 수와는 다르다.
 4. **일부 Company Detail 상태와 사유는 샘플 배열에서 가져온다.** DB의 최신 `fundamental_classifications`를 Detail header에 직접 연결하지 않는다.
-5. **Overview는 전체 100개를 표시하지만 유효 데이터는 저장된 기업만 반영한다.** 세 기업 외 Snapshot이 없다면 나머지는 방향 집계에서 제외된다.
+5. **Overview 방향 집계에는 지표별 비교 가능한 Snapshot이 2개 필요하다.** 전체 수집 성공 기업 수와 Trend Valid Companies는 다를 수 있다.
 6. **Screening과 Ranking은 별도다.** 분류 기준을 통과해야 Ranking 대상이 되며, Ranking score 자체가 Screening category를 결정하지 않는다.
 7. **AI는 현재 규칙 기반 UI 함수다.** 별도 service module이나 LLM 연동은 아직 없다.
 8. **Buy Engine 통합은 외부 서비스 설정에 의존한다.** 두 환경 변수가 없으면 등록 상태 확인과 변경이 작동하지 않는다.
@@ -695,11 +690,10 @@ Version 28 기준 자동 테스트 수는 55개다.
 
 ## 21. 확장 전 권장 순서
 
-1. 수집 버튼과 실제 범위의 명칭을 일치시킨다.
-2. 파일럿 3개 기업의 월별 Snapshot을 충분히 축적한다.
-3. 세 기업에서 fiscal rollover, 통화, FCF variance 경고를 반복 검증한다.
-4. Nasdaq 100 batch collection에 rate limit, retry, checkpoint를 추가한다.
-5. 화면의 샘플 회사 배열을 제거하고 분류·coverage를 D1 기준으로 통일한다.
+1. Nasdaq 100 월별 Snapshot을 최소 3개월 축적한다.
+2. fiscal rollover, 통화, FCF variance 경고를 반복 검증한다.
+3. 장기 실행이 발생하면 batch checkpoint 방식으로 확장한다.
+4. 화면의 남은 샘플 회사 배열을 제거하고 분류를 D1 기준으로 통일한다.
 6. 전체 Universe 수집 전에 FMP quota와 기업별 endpoint 예외를 측정한다.
 7. 수집 실패 기업만 재처리할 수 있는 운영 경로를 마련한다.
 8. Universe constituent의 기준일과 업데이트 절차를 문서화한다.
@@ -710,10 +704,4 @@ Version 28 기준 자동 테스트 수는 55개다.
 
 ## 22. 현재 구조에 대한 판정
 
-현재 구조는 **3개 기업 파일럿의 데이터 수집·검증·계산·분류와 UI 확인에는 적합하다.**
-
-그러나 **Nasdaq 100 전체 운영 수집이 완료된 구조는 아니다.** 전체 Universe 메타데이터, 검색, 조회, 집계 골격은 준비됐지만 실제 batch 수집, API 사용량 제어, retry·checkpoint, 운영 상태의 DB 단일화가 남아 있다.
-
-따라서 현재 단계의 표현은 다음이 가장 정확하다.
-
-> **Production-oriented pilot architecture, not yet full Nasdaq 100 production collection.**
+현재 구조는 **Nasdaq 100 전체의 반복 수집을 시작할 수 있는 production-oriented collection architecture**다. Concurrency, retry, 실패 ticker 기록·재수집, run 상태, 중복 방지가 적용됐다. 다만 3개월 Snapshot 축적과 운영 중 API quota·장기 실행 관찰은 아직 남아 있다.

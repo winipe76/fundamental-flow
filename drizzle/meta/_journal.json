@@ -57,6 +57,13 @@
       "when": 1787396982731,
       "tag": "0007_next_fy_forward_eps",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787660424688,
+      "tag": "0008_nasdaq_collection_earnings",
+      "breakpoints": true
     }
   ]
 }
