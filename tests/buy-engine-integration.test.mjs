@@ -6,12 +6,13 @@ const route = fs.readFileSync("app/api/buy-engine/candidates/route.ts", "utf8");
 const page = fs.readFileSync("app/page.tsx", "utf8");
 const candidate = fs.readFileSync("lib/fundamental-candidate.ts", "utf8");
 
-test("registers and removes candidates through the secure Buy Engine sync endpoint", () => {
-  assert.match(route, /api\/candidates\/sync/);
-  assert.match(route, /method: "POST"/);
+test("registers and removes candidates through the authenticated browser transfer endpoint", () => {
+  assert.match(route, /api\/candidates\/import\?token=/);
+  assert.match(route, /createCandidateTransferToken/);
+  assert.match(route, /transfer\(request, "add"\)/);
   assert.match(route, /export async function DELETE/);
-  assert.match(route, /method: "DELETE"/);
-  assert.match(route, /Authorization.*Bearer/);
+  assert.match(route, /transfer\(request, "remove"\)/);
+  assert.match(route, /BUY_ENGINE_SYNC_TOKEN/);
 });
 
 test("offers the existing Buy Engine toggle from company detail and screener", () => {
@@ -22,9 +23,10 @@ test("offers the existing Buy Engine toggle from company detail and screener", (
   assert.match(page, /RankingCandidateRow[\s\S]*CandidateActions ticker=\{row\.ticker\}/);
 });
 
-test("shows one toggle button from the actual Buy Engine candidate state", () => {
-  assert.match(page, /fetch\(`\/api\/buy-engine\/candidates\?ticker=/);
-  assert.match(page, /setCandidateState\(\{ticker,added:payload\.added===true\}\)/);
+test("shows one toggle button from the confirmed Buy Engine callback state", () => {
+  assert.match(page, /buy_engine_added/);
+  assert.match(page, /localStorage\.setItem\(`buy-engine:/);
+  assert.match(page, /window\.location\.assign\(payload\.redirectUrl\)/);
   assert.match(page, /Added · Remove from Buy Engine/);
   assert.match(page, /aria-pressed=\{added\}/);
   assert.doesNotMatch(page, /<button[^>]*>Remove from Buy Engine<\/button>/);

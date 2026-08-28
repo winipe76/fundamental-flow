@@ -13,10 +13,14 @@ async function encryptionKey(secret: string) {
   return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt"]);
 }
 
-export async function createCandidateTransferToken(snapshot: FundamentalCandidateSnapshot, secret: string) {
+export type CandidateTransferAction = "add" | "remove";
+
+export async function createCandidateTransferToken(snapshot: FundamentalCandidateSnapshot, secret: string, action: CandidateTransferAction, returnUrl: string) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const payload = new TextEncoder().encode(JSON.stringify({
     snapshot,
+    action,
+    return_url: returnUrl,
     issued_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + TOKEN_TTL_MS).toISOString(),
   }));
