@@ -33,6 +33,7 @@ test("shows one toggle button from the confirmed Buy Engine callback state", () 
 });
 
 test("transfers stored Fundamental metrics without ranking or valuation", () => {
-  assert.doesNotMatch(candidate, /rankSnapshots|fundamental_score|ranking_component_scores|ranking_position/);
-  for (const field of ["ticker", "company_name", "fundamental_stage", "metrics", "source_snapshot_date"]) assert.ok(candidate.includes(field), field);
+  assert.match(candidate, /rankSnapshots/);
+  assert.doesNotMatch(candidate, /ranking_component_scores|ranking_position/);
+  for (const field of ["ticker", "company_name", "fundamental_stage", "fundamental_score", "metrics", "source_snapshot_date"]) assert.ok(candidate.includes(field), field);
 });

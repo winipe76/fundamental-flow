@@ -12,6 +12,7 @@ export type FundamentalCandidateSnapshot = {
   ticker: string;
   company_name: string;
   fundamental_stage: FundamentalStage;
+  fundamental_score: number | null;
   metrics: Record<string, unknown>;
   source_snapshot_date: string;
 };
