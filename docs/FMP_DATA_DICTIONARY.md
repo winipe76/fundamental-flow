@@ -4,12 +4,12 @@
 
 | Item | Value |
 | --- | --- |
-| Data Dictionary Version | 1.2 |
+| Data Dictionary Version | 1.3 |
 | Mapping Version | FMP Mapping v1.1 |
-| Verified Date | 2026-08-25 |
-| Verified Companies | PLTR, NVDA, MU |
+| Verified Date | 2026-08-30 |
+| Verified Companies | PLTR, NVDA, MU, MRVL |
 | API Version | FMP Stable API (`/stable`) |
-| Last Updated | 2026-08-25 |
+| Last Updated | 2026-08-30 |
 | Status | Official project reference |
 
 This document is the single source of truth for FMP fields currently consumed by Fundamental Flow. It covers source fields, normalized Monthly Snapshot fields, calculated fields, validation metadata, and Snapshot Quality. A field is not approved for production mapping merely because it appears in an FMP response.
@@ -23,7 +23,7 @@ Verification used actual responses from all three Phase 1 companies for these re
 
 All PLTR examples below come from the actual response observed on the Verified Date. Monetary values are stored as raw USD, not pre-scaled to millions or billions.
 
-The Earnings response was separately verified for PLTR, NVDA, and MU on 2026-08-25. All three returned exactly these keys: `symbol`, `date`, `epsActual`, `epsEstimated`, `revenueActual`, `revenueEstimated`, and `lastUpdated`. No structured Management Revenue Guidance, EPS Guidance, Margin Guidance, guidance target period, or guidance announcement date field was present. Those internal fields therefore remain nullable and are never inferred from analyst estimates.
+The Earnings response was separately verified for PLTR, NVDA, MU, and MRVL. It contains actual and consensus values but no structured Management Revenue Guidance, EPS Guidance, Margin Guidance, guidance target period, or guidance announcement date. Guidance therefore uses a separately verified official issuer IR/SEC release when available and is never inferred from analyst estimates. The current verified sources are NVIDIA's 2026-08-26 Q2 FY2027 release and Marvell's 2026-08-27 Exhibit 99.1.
 
 ## Earnings and Guidance Mapping
 
@@ -40,11 +40,11 @@ The Earnings response was separately verified for PLTR, NVDA, and MU on 2026-08-
 | Internal Calculation | `epsActual`, `epsEstimated` | `eps_surprise` | number | Yes | No | Actual EPS − EPS Consensus | USD/share | Earnings calculation | Both inputs must be finite | `0.0654` |
 | Internal Calculation | `epsActual`, `epsEstimated` | `eps_surprise_pct` | number | Yes | No | `(Actual / Consensus − 1) × 100` | % | Earnings calculation | Consensus must be finite and non-zero | `18.9797%` |
 | Earnings Report | `lastUpdated` | `source_last_updated` | date | Yes | No | Direct mapping | ISO date | FMP Earnings | Must be a string when present | `2026-08-25` |
-| No verified FMP field | n/a | `management_revenue_guidance` | string | Yes | No | No mapping; store null | Text | Future verified source | Must remain null until an actual source field is verified | `null` |
-| No verified FMP field | n/a | `eps_guidance` | string | Yes | No | No mapping; store null | Text | Future verified source | Must remain null until an actual source field is verified | `null` |
-| No verified FMP field | n/a | `margin_guidance` | string | Yes | No | No mapping; store null | Text | Future verified source | Must remain null until an actual source field is verified | `null` |
-| No verified FMP field | n/a | `guidance_period` | string | Yes | No | No mapping; store null | Fiscal period | Future verified source | Must remain null until an actual source field is verified | `null` |
-| No verified FMP field | n/a | `guidance_announcement_date` | date | Yes | No | No mapping; store null | ISO date | Future verified source | Must remain null until an actual source field is verified | `null` |
+| Official issuer IR/SEC earnings release | Outlook revenue text | `management_revenue_guidance` | string | Yes | No | Preserve verified range and unit | Text | Official Guidance | Required markers and earnings date must match the approved release | NVDA `$108.0B ±2%` |
+| Official issuer IR/SEC earnings release | Outlook EPS text | `eps_guidance` | string | Yes | No | Preserve GAAP/non-GAAP labels and range | Text | Official Guidance | Store null when the company does not issue EPS guidance | NVDA `null` |
+| Official issuer IR/SEC earnings release | Outlook gross-margin text | `margin_guidance` | string | Yes | No | Preserve GAAP/non-GAAP labels and range | Text | Official Guidance | Required markers and earnings date must match the approved release | NVDA `GAAP / Non-GAAP Gross Margin 74.0% ±0.5%p` |
+| Official issuer IR/SEC earnings release | Outlook heading | `guidance_period` | string | Yes | No | Normalize stated target fiscal period | Fiscal period | Official Guidance | Period must be explicitly stated in the release | NVDA `Q3 FY2027` |
+| Official issuer IR/SEC earnings release | Release date | `guidance_announcement_date` | date | Yes | No | Direct verified date | ISO date | Official Guidance | Must equal the linked earnings event date | NVDA `2026-08-26` |
 
 Earnings and Guidance fields are stored in `earnings_events`, not `fundamental_snapshots`. They are excluded from Calculation Engine, Screening, Ranking, and Score inputs during the observation period.
 

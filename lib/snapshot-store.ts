@@ -2,13 +2,17 @@ import { collectTicker } from "@/lib/fmp";
 import { calculateDerived, type RawFundamentals } from "@/lib/fundamental-math";
 import { calculateNextFyRevisions } from "@/lib/forward-eps";
 import { classifySnapshot, type PreviousClassification, type ScreeningStage } from "@/lib/screening-engine";
+import { collectOfficialGuidance } from "@/lib/official-guidance";
 
 function dbNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export async function collectAndStoreTicker(db: D1Database, ticker: string, apiKey: string, snapshotDate: string, collectedAt: string) {
-  const collected = await collectTicker(ticker, apiKey, snapshotDate);
+  const [collected, officialGuidance] = await Promise.all([
+    collectTicker(ticker, apiKey, snapshotDate),
+    collectOfficialGuidance(ticker),
+  ]);
   for (const raw of collected.raw) {
     await db.prepare(`INSERT INTO api_payloads
       (ticker,snapshot_date,endpoint,http_status,response_json,error_message,fetched_at,request_attempts) VALUES (?,?,?,?,?,?,?,?)
@@ -18,6 +22,7 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     ).bind(ticker, snapshotDate, raw.endpoint, raw.status, JSON.stringify(raw.data), raw.error, collectedAt, raw.attempts).run();
   }
   for (const event of collected.earningsEvents) {
+    const guidance = officialGuidance?.earningsDate === event.earningsDate ? officialGuidance : null;
     await db.prepare(`INSERT INTO earnings_events (
       ticker,earnings_date,actual_revenue,revenue_consensus,revenue_surprise,revenue_surprise_pct,
       actual_eps,eps_consensus,eps_surprise,eps_surprise_pct,management_revenue_guidance,eps_guidance,
@@ -27,11 +32,19 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
       actual_revenue=excluded.actual_revenue,revenue_consensus=excluded.revenue_consensus,
       revenue_surprise=excluded.revenue_surprise,revenue_surprise_pct=excluded.revenue_surprise_pct,
       actual_eps=excluded.actual_eps,eps_consensus=excluded.eps_consensus,eps_surprise=excluded.eps_surprise,
-      eps_surprise_pct=excluded.eps_surprise_pct,source_last_updated=excluded.source_last_updated,collected_at=excluded.collected_at`
+      eps_surprise_pct=excluded.eps_surprise_pct,
+      management_revenue_guidance=COALESCE(excluded.management_revenue_guidance,management_revenue_guidance),
+      eps_guidance=COALESCE(excluded.eps_guidance,eps_guidance),margin_guidance=COALESCE(excluded.margin_guidance,margin_guidance),
+      guidance_period=COALESCE(excluded.guidance_period,guidance_period),
+      guidance_announcement_date=COALESCE(excluded.guidance_announcement_date,guidance_announcement_date),
+      source_endpoint=CASE WHEN excluded.management_revenue_guidance IS NOT NULL OR excluded.eps_guidance IS NOT NULL
+        OR excluded.margin_guidance IS NOT NULL THEN excluded.source_endpoint ELSE source_endpoint END,
+      source_last_updated=excluded.source_last_updated,collected_at=excluded.collected_at`
     ).bind(
       event.ticker,event.earningsDate,event.actualRevenue,event.revenueConsensus,event.revenueSurprise,event.revenueSurprisePct,
-      event.actualEps,event.epsConsensus,event.epsSurprise,event.epsSurprisePct,null,null,null,null,null,
-      "FMP /stable/earnings",event.sourceLastUpdated,collectedAt,
+      event.actualEps,event.epsConsensus,event.epsSurprise,event.epsSurprisePct,
+      guidance?.revenue??null,guidance?.eps??null,guidance?.margin??null,guidance?.period??null,guidance?.announcementDate??null,
+      guidance?`FMP /stable/earnings + ${guidance.source}`:"FMP /stable/earnings",event.sourceLastUpdated,collectedAt,
     ).run();
   }
   const oneMonth = await db.prepare(`SELECT next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots

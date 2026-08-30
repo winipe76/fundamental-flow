@@ -30,11 +30,12 @@ test("persists collection runs and earnings without duplicate records",()=>{
   assert.match(store,/ON CONFLICT\(ticker,earnings_date\) DO UPDATE/);
 });
 
-test("maps only verified FMP earnings fields and leaves guidance nullable",()=>{
+test("maps FMP earnings and only verified official guidance",()=>{
   for(const field of ["epsActual","epsEstimated","revenueActual","revenueEstimated","lastUpdated"])assert.match(fmp,new RegExp(field));
   assert.match(fmp,/earnings\?symbol=.*limit=12/);
   for(const field of ["management_revenue_guidance","eps_guidance","margin_guidance","guidance_period","guidance_announcement_date"])assert.match(dictionary,new RegExp(field));
-  assert.match(dictionary,/No verified FMP field/);
+  assert.match(dictionary,/Official issuer IR\/SEC earnings release/);
+  assert.match(store,/collectOfficialGuidance/);
 });
 
 test("does not change screening or ranking formulas in the collection layer",()=>{
