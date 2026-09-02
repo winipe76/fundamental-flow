@@ -28,8 +28,8 @@ export async function GET() {
     `).bind(...NASDAQ_100_TICKERS).all<{ ticker:string; stage:string }>();
     const stageByTicker = new Map(classifications.results.map(row => [row.ticker, row.stage]));
     const selectedStages = new Set(["newly_selected", "continuing_improvement"]);
-    const eligible = latest.results
-      .filter(row => selectedStages.has(stageByTicker.get(String(row.ticker)) ?? ""))
+    const selected = latest.results.filter(row => selectedStages.has(stageByTicker.get(String(row.ticker)) ?? ""));
+    const eligible = (selected.length ? selected : latest.results)
       .map(row => ({ ...row, ...NASDAQ_100_BY_TICKER.get(String(row.ticker)), classification: stageByTicker.get(String(row.ticker)) }));
     const ranked = rankSnapshots(eligible).slice(0, 10);
     const lastUpdated = latest.results.reduce<string | null>((latestDate, row) => {

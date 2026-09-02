@@ -33,6 +33,11 @@ test("ranking refresh performs one update request", () => {
   assert.doesNotMatch(page, /for\(let batch=/);
 });
 
+test("ranking falls back to valid snapshots before classifications exist", () => {
+  const route = fs.readFileSync("app/api/rankings/route.ts", "utf8");
+  assert.match(route, /selected\.length \? selected : latest\.results/);
+});
+
 test("latest successful update requires six fields and calculation success", () => {
   const route = fs.readFileSync("app/api/fundamentals/route.ts", "utf8");
   for (const field of ["actual_trailing_revenue", "revenue_yoy_pct", "next_fy_eps", "operating_margin", "operating_cash_flow", "capital_expenditure", "calculation_success=1"]) assert.ok(route.includes(field), field);
