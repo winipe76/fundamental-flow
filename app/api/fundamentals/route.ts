@@ -29,15 +29,18 @@ export async function GET(request: Request) {
       const snapshots = await runtime.DB.prepare(`
         WITH ranked AS (
           SELECT s.*,
-            ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY snapshot_date DESC) AS snapshot_rank
+            ROW_NUMBER() OVER (PARTITION BY ticker, substr(snapshot_date,1,7) ORDER BY snapshot_date DESC, collected_at DESC) AS snapshot_rank
           FROM fundamental_snapshots s
           WHERE ticker IN (${placeholders})
+            AND snapshot_date >= date('now','+9 hours','start of month','-1 month')
+            AND snapshot_date < date('now','+9 hours','start of month','+1 month')
         )
-        SELECT * FROM ranked WHERE snapshot_rank <= 2 ORDER BY ticker, snapshot_rank
+        SELECT * FROM ranked WHERE snapshot_rank = 1 ORDER BY ticker, snapshot_date DESC
       `).bind(...NASDAQ_100_TICKERS).all();
       return json({
         status: "connected",
         universeSize: NASDAQ_100.length,
+        currentMonth: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit" }).format(new Date()),
         snapshots: snapshots.results,
       });
     }
