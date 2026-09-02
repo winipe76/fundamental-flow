@@ -1,0 +1,61 @@
+export type NasdaqCompany = { ticker: string; name: string; sector: string };
+
+// Nasdaq-100 company universe reconstructed from iShares IQQ holdings dated 2026-08-06.
+// Alphabet's second share class (GOOG) and the temporary Honeywell Aerospace line are
+// excluded so the ranking is company-based rather than security-based.
+export const NASDAQ_100: NasdaqCompany[] = [
+  ["NVDA","NVIDIA Corporation","Information Technology"],["AAPL","Apple Inc.","Information Technology"],
+  ["MSFT","Microsoft Corporation","Information Technology"],["AMZN","Amazon.com Inc.","Consumer Discretionary"],
+  ["MU","Micron Technology","Information Technology"],["AMD","Advanced Micro Devices","Information Technology"],
+  ["GOOGL","Alphabet Inc. Class A","Communication Services"],["AVGO","Broadcom Inc.","Information Technology"],
+  ["META","Meta Platforms","Communication Services"],["TSLA","Tesla Inc.","Consumer Discretionary"],
+  ["WMT","Walmart Inc.","Consumer Staples"],["INTC","Intel Corporation","Information Technology"],
+  ["CSCO","Cisco Systems","Information Technology"],["COST","Costco Wholesale","Consumer Staples"],
+  ["AMAT","Applied Materials","Information Technology"],["LRCX","Lam Research","Information Technology"],
+  ["PLTR","Palantir Technologies","Information Technology"],["NFLX","Netflix Inc.","Communication Services"],
+  ["PANW","Palo Alto Networks","Information Technology"],["TXN","Texas Instruments","Information Technology"],
+  ["KLAC","KLA Corporation","Information Technology"],["LIN","Linde plc","Materials"],
+  ["SPCX","Space Exploration Technologies","Communication Services"],["AMGN","Amgen Inc.","Health Care"],
+  ["CRWD","CrowdStrike Holdings","Information Technology"],["TMUS","T-Mobile US","Communication Services"],
+  ["STX","Seagate Technology","Information Technology"],["PEP","PepsiCo Inc.","Consumer Staples"],
+  ["SNDK","Sandisk Corporation","Information Technology"],["ADI","Analog Devices","Information Technology"],
+  ["MRVL","Marvell Technology","Information Technology"],["SHOP","Shopify Inc.","Information Technology"],
+  ["QCOM","Qualcomm Inc.","Information Technology"],["GILD","Gilead Sciences","Health Care"],
+  ["BKNG","Booking Holdings","Consumer Discretionary"],["ASML","ASML Holding","Information Technology"],
+  ["WDC","Western Digital","Information Technology"],["ISRG","Intuitive Surgical","Health Care"],
+  ["VRTX","Vertex Pharmaceuticals","Health Care"],["ARM","Arm Holdings","Information Technology"],
+  ["SBUX","Starbucks Corporation","Consumer Discretionary"],["FTNT","Fortinet Inc.","Information Technology"],
+  ["ADP","Automatic Data Processing","Industrials"],["ADBE","Adobe Inc.","Information Technology"],
+  ["APP","AppLovin Corporation","Communication Services"],["CDNS","Cadence Design Systems","Information Technology"],
+  ["MAR","Marriott International","Consumer Discretionary"],["CSX","CSX Corporation","Industrials"],
+  ["CEG","Constellation Energy","Utilities"],["MELI","MercadoLibre","Consumer Discretionary"],
+  ["MNST","Monster Beverage","Consumer Staples"],["CMCSA","Comcast Corporation","Communication Services"],
+  ["INTU","Intuit Inc.","Information Technology"],["DASH","DoorDash Inc.","Consumer Discretionary"],
+  ["ROST","Ross Stores","Consumer Discretionary"],["MDLZ","Mondelez International","Consumer Staples"],
+  ["CTAS","Cintas Corporation","Industrials"],["REGN","Regeneron Pharmaceuticals","Health Care"],
+  ["SNPS","Synopsys Inc.","Information Technology"],["ORLY","O'Reilly Automotive","Consumer Discretionary"],
+  ["HON","Honeywell International","Industrials"],["DDOG","Datadog Inc.","Information Technology"],
+  ["PCAR","PACCAR Inc.","Industrials"],["AEP","American Electric Power","Utilities"],
+  ["MPWR","Monolithic Power Systems","Information Technology"],["WBD","Warner Bros. Discovery","Communication Services"],
+  ["LITE","Lumentum Holdings","Information Technology"],["ABNB","Airbnb Inc.","Consumer Discretionary"],
+  ["TER","Teradyne Inc.","Information Technology"],["BKR","Baker Hughes","Energy"],
+  ["NXPI","NXP Semiconductors","Information Technology"],["PDD","PDD Holdings","Consumer Discretionary"],
+  ["FAST","Fastenal Company","Industrials"],["ALAB","Astera Labs","Information Technology"],
+  ["FANG","Diamondback Energy","Energy"],["PYPL","PayPal Holdings","Financials"],
+  ["ADSK","Autodesk Inc.","Information Technology"],["XEL","Xcel Energy","Utilities"],
+  ["CCEP","Coca-Cola Europacific Partners","Consumer Staples"],["FER","Ferrovial SE","Industrials"],
+  ["IDXX","IDEXX Laboratories","Health Care"],["EXC","Exelon Corporation","Utilities"],
+  ["ODFL","Old Dominion Freight Line","Industrials"],["RKLB","Rocket Lab Corporation","Industrials"],
+  ["TTWO","Take-Two Interactive","Communication Services"],["PAYX","Paychex Inc.","Industrials"],
+  ["AXON","Axon Enterprise","Industrials"],["NBIS","Nebius Group","Information Technology"],
+  ["KDP","Keurig Dr Pepper","Consumer Staples"],["MCHP","Microchip Technology","Information Technology"],
+  ["ROP","Roper Technologies","Information Technology"],["CRWV","CoreWeave Inc.","Information Technology"],
+  ["TRI","Thomson Reuters","Industrials"],["WDAY","Workday Inc.","Information Technology"],
+  ["DXCM","DexCom Inc.","Health Care"],["MSTR","Strategy Inc.","Information Technology"],
+  ["GEHC","GE HealthCare Technologies","Health Care"],["ALNY","Alnylam Pharmaceuticals","Health Care"],
+  ["KHC","Kraft Heinz","Consumer Staples"],["CPRT","Copart Inc.","Industrials"],
+].map(([ticker,name,sector]) => ({ ticker, name, sector }));
+
+export const NASDAQ_100_TICKERS = NASDAQ_100.map((company) => company.ticker);
+export const NASDAQ_100_BY_TICKER = new Map(NASDAQ_100.map((company) => [company.ticker, company]));
+

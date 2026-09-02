@@ -1,0 +1,1 @@
+ALTER TABLE `fundamental_snapshots` ADD `fy1_eps_change_3m_pct` real;

@@ -1,0 +1,170 @@
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const companies = sqliteTable("companies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ticker: text("ticker").notNull(),
+  companyName: text("company_name").notNull(),
+  themeTags: text("theme_tags", { mode: "json" }).$type<string[]>().notNull(),
+  currentFwdEps: real("current_fwd_eps").notNull(),
+  previousFwdEps: real("previous_fwd_eps").notNull(),
+  epsChangePct: real("eps_change_pct").notNull(),
+  status: text("status", { enum: ["selected", "improving", "caution"] }).notNull(),
+  snapshotMonth: text("snapshot_month").notNull(),
+  revenueGrowth: real("revenue_growth"),
+  ruleOf40: real("rule_of_40"),
+  fcfMargin: real("fcf_margin"),
+}, (table) => [
+  uniqueIndex("idx_companies_ticker_month").on(table.ticker, table.snapshotMonth),
+  index("idx_companies_status_change").on(table.status, table.epsChangePct),
+]);
+
+/** Immutable source responses. Normalized/calculated fields never overwrite these payloads. */
+export const apiPayloads = sqliteTable("api_payloads", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ticker: text("ticker").notNull(),
+  snapshotDate: text("snapshot_date").notNull(),
+  endpoint: text("endpoint").notNull(),
+  httpStatus: integer("http_status"),
+  responseJson: text("response_json"),
+  errorMessage: text("error_message"),
+  fetchedAt: text("fetched_at").notNull(),
+  requestAttempts: integer("request_attempts").notNull().default(1),
+}, (table) => [
+  index("idx_api_payloads_ticker_date").on(table.ticker, table.snapshotDate),
+  uniqueIndex("idx_api_payloads_ticker_date_endpoint").on(table.ticker, table.snapshotDate, table.endpoint),
+]);
+
+/** Monthly, normalized snapshot. Percent changes are calculated against the prior stored snapshot. */
+export const fundamentalSnapshots = sqliteTable("fundamental_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ticker: text("ticker").notNull(),
+  snapshotDate: text("snapshot_date").notNull(),
+  estimateFiscalDate: text("estimate_fiscal_date"),
+  epsDefinition: text("eps_definition").notNull(),
+  annualFwdEpsEstimate: real("annual_fwd_eps_estimate"),
+  currentFyEstimateFiscalDate: text("current_fy_estimate_fiscal_date"),
+  currentFyEps: real("current_fy_eps"),
+  nextFyEstimateFiscalDate: text("next_fy_estimate_fiscal_date"),
+  nextFyEps: real("next_fy_eps"),
+  nextFyRevision1m: real("next_fy_revision_1m"),
+  nextFyRevision3m: real("next_fy_revision_3m"),
+  estimatedAnnualRevenue: real("estimated_annual_revenue"),
+  actualTrailingRevenue: real("actual_trailing_revenue"),
+  operatingIncome: real("operating_income"),
+  operatingMargin: real("operating_margin"),
+  freeCashFlow: real("free_cash_flow"),
+  fcfMargin: real("fcf_margin"),
+  fwdEpsChangePct: real("fwd_eps_change_pct"),
+  estimatedRevenueChangePct: real("estimated_revenue_change_pct"),
+  operatingMarginChangePp: real("operating_margin_change_pp"),
+  fcfMarginChangePp: real("fcf_margin_change_pp"),
+  missingFields: text("missing_fields", { mode: "json" }).$type<string[]>().notNull(),
+  collectionStatus: text("collection_status", { enum: ["complete", "partial", "failed"] }).notNull(),
+  collectedAt: text("collected_at").notNull(),
+  latestFiscalYear: text("latest_fiscal_year"),
+  latestFiscalPeriod: text("latest_fiscal_period"),
+  latestPeriodEnd: text("latest_period_end"),
+  latestQuarterEps: real("latest_quarter_eps"),
+  priorYearQuarterEps: real("prior_year_quarter_eps"),
+  epsYoyPct: real("eps_yoy_pct"),
+  epsYoyStatus: text("eps_yoy_status"),
+  epsChangeAmount: real("eps_change_amount"),
+  latestQuarterRevenue: real("latest_quarter_revenue"),
+  priorYearQuarterRevenue: real("prior_year_quarter_revenue"),
+  revenueYoyPct: real("revenue_yoy_pct"),
+  ntmEps: real("ntm_eps"),
+  ntmComponents: text("ntm_components", { mode: "json" }).$type<Array<{ date: string; fiscalYear: string | null; period: string | null; eps: number }>>(),
+  ntmEpsChange1mPct: real("ntm_eps_change_1m_pct"),
+  ntmEpsChange3mPct: real("ntm_eps_change_3m_pct"),
+  fy1EpsChange3mPct: real("fy1_eps_change_3m_pct"),
+  operatingCashFlow: real("operating_cash_flow"),
+  capitalExpenditure: real("capital_expenditure"),
+  cfoMargin: real("cfo_margin"),
+  capexIntensity: real("capex_intensity"),
+  classicRule40: real("classic_rule_40"),
+  operatingRule40: real("operating_rule_40"),
+  cashRule40: real("cash_rule_40"),
+  forwardEpsBasis: text("forward_eps_basis"),
+  dataSource: text("data_source"),
+  calculationSuccess: integer("calculation_success", { mode: "boolean" }),
+  snapshotQualityScore: integer("snapshot_quality_score"),
+  snapshotQualityChecks: text("snapshot_quality_checks", { mode: "json" }).$type<Record<string, boolean>>(),
+  snapshotQualityCaution: integer("snapshot_quality_caution", { mode: "boolean" }),
+  mappingVersion: text("mapping_version"),
+  reportedCurrency: text("reported_currency"),
+  validationStatus: text("validation_status", { enum: ["valid", "warning"] }),
+  validationWarnings: text("validation_warnings", { mode: "json" }).$type<string[]>(),
+  fmpReportedFreeCashFlow: real("fmp_reported_free_cash_flow"),
+  fcfVariance: real("fcf_variance"),
+}, (table) => [
+  uniqueIndex("idx_fundamental_snapshots_ticker_date").on(table.ticker, table.snapshotDate),
+  index("idx_fundamental_snapshots_date_status").on(table.snapshotDate, table.collectionStatus),
+]);
+
+/** Fundamental Flow owns the five-stage classification. Candidate membership lives in Buy Engine. */
+export const fundamentalClassifications = sqliteTable("fundamental_classifications", {
+  ticker: text("ticker").primaryKey(),
+  stage: text("stage", { enum: ["newly_selected", "continuing_improvement", "watch", "caution", "excluded"] }).notNull(),
+  reason: text("reason"),
+  version: text("version").notNull().default("fundamental-stage-v1"),
+  classifiedAt: text("classified_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  sourceSnapshotDate: text("source_snapshot_date"),
+}, (table) => [index("idx_fundamental_classifications_stage_updated").on(table.stage, table.updatedAt)]);
+
+/** One durable Nasdaq-100 collection execution. */
+export const collectionRuns = sqliteTable("collection_runs", {
+  id: text("id").primaryKey(),
+  startedAt: text("started_at").notNull(),
+  completedAt: text("completed_at"),
+  status: text("status", { enum: ["running", "completed", "partial", "failed"] }).notNull(),
+  totalCount: integer("total_count").notNull(),
+  successCount: integer("success_count").notNull().default(0),
+  partialCount: integer("partial_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  retryCount: integer("retry_count").notNull().default(0),
+  apiRequestCount: integer("api_request_count").notNull().default(0),
+  apiRetryCount: integer("api_retry_count").notNull().default(0),
+}, (table) => [index("idx_collection_runs_started").on(table.startedAt)]);
+
+/** Per-ticker status makes failed companies auditable and retryable. */
+export const collectionRunItems = sqliteTable("collection_run_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  runId: text("run_id").notNull(),
+  ticker: text("ticker").notNull(),
+  status: text("status", { enum: ["pending", "success", "partial", "failed"] }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  errorMessage: text("error_message"),
+  snapshotDate: text("snapshot_date").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_collection_run_items_run_ticker").on(table.runId, table.ticker),
+  index("idx_collection_run_items_status").on(table.runId, table.status),
+]);
+
+/** Earnings are stored independently and never alter the current scoring inputs. */
+export const earningsEvents = sqliteTable("earnings_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ticker: text("ticker").notNull(),
+  earningsDate: text("earnings_date").notNull(),
+  actualRevenue: real("actual_revenue"),
+  revenueConsensus: real("revenue_consensus"),
+  revenueSurprise: real("revenue_surprise"),
+  revenueSurprisePct: real("revenue_surprise_pct"),
+  actualEps: real("actual_eps"),
+  epsConsensus: real("eps_consensus"),
+  epsSurprise: real("eps_surprise"),
+  epsSurprisePct: real("eps_surprise_pct"),
+  managementRevenueGuidance: text("management_revenue_guidance"),
+  epsGuidance: text("eps_guidance"),
+  marginGuidance: text("margin_guidance"),
+  guidancePeriod: text("guidance_period"),
+  guidanceAnnouncementDate: text("guidance_announcement_date"),
+  sourceEndpoint: text("source_endpoint").notNull(),
+  sourceLastUpdated: text("source_last_updated"),
+  collectedAt: text("collected_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_earnings_events_ticker_date").on(table.ticker, table.earningsDate),
+  index("idx_earnings_events_date").on(table.earningsDate),
+]);
+
