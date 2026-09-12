@@ -36,6 +36,9 @@ export interface NormalizedSnapshot {
   latestFiscalPeriod: string | null;
   latestPeriodEnd: string | null;
   latestQuarterEps: number | null;
+  previousQuarterEps: number | null;
+  epsQoqPct: number | null;
+  epsQoqStatus: string;
   priorYearQuarterEps: number | null;
   epsYoyPct: number | null;
   epsYoyStatus: string;
@@ -125,6 +128,8 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
     : null;
 
   const latestQuarterEps = numberOrNull(latest?.epsDiluted);
+  const previousQuarterEps = numberOrNull(incomeQuarters[1]?.epsDiluted);
+  const epsQoqComparison = compareQuarterEps(latestQuarterEps, previousQuarterEps);
   const priorYearQuarterEps = numberOrNull(prior?.epsDiluted);
   const epsComparison = compareQuarterEps(latestQuarterEps, priorYearQuarterEps);
   const latestQuarterRevenue = numberOrNull(latest?.revenue);
@@ -175,7 +180,8 @@ export async function collectTicker(ticker: string, apiKey: string, snapshotDate
 
   const normalized: NormalizedSnapshot = {
     ticker, latestFiscalYear, latestFiscalPeriod, latestPeriodEnd: typeof latest?.date === "string" ? latest.date : null,
-    latestQuarterEps, priorYearQuarterEps, epsYoyPct: epsComparison.yoyPct, epsYoyStatus: epsComparison.status,
+    latestQuarterEps, previousQuarterEps, epsQoqPct: epsQoqComparison.yoyPct, epsQoqStatus: epsQoqComparison.status,
+    priorYearQuarterEps, epsYoyPct: epsComparison.yoyPct, epsYoyStatus: epsComparison.status,
     epsChangeAmount: epsComparison.changeAmount, latestQuarterRevenue, priorYearQuarterRevenue, revenueYoyPct,
     currentFyFiscalDate, currentFyEps, nextFyFiscalDate, nextFyEps,
     actualTrailingRevenue, operatingIncome, operatingMargin, freeCashFlow, fcfMargin, operatingCashFlow, capitalExpenditure,
