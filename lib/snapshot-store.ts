@@ -73,16 +73,17 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     actual_trailing_revenue,operating_income,operating_margin,free_cash_flow,fcf_margin,
     fwd_eps_change_pct,estimated_revenue_change_pct,operating_margin_change_pp,fcf_margin_change_pp,
     missing_fields,collection_status,collected_at,latest_fiscal_year,latest_fiscal_period,latest_period_end,
-    latest_quarter_eps,prior_year_quarter_eps,eps_yoy_pct,eps_yoy_status,eps_change_amount,
+    latest_quarter_eps,previous_quarter_eps,eps_qoq_pct,eps_qoq_status,prior_year_quarter_eps,eps_yoy_pct,eps_yoy_status,eps_change_amount,
     latest_quarter_revenue,prior_year_quarter_revenue,revenue_yoy_pct,ntm_eps,ntm_components,
     ntm_eps_change_1m_pct,ntm_eps_change_3m_pct,fy1_eps_change_3m_pct
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   ON CONFLICT(ticker,snapshot_date) DO UPDATE SET
     eps_definition=excluded.eps_definition,actual_trailing_revenue=excluded.actual_trailing_revenue,
     operating_income=excluded.operating_income,operating_margin=excluded.operating_margin,free_cash_flow=excluded.free_cash_flow,
     fcf_margin=excluded.fcf_margin,missing_fields=excluded.missing_fields,collection_status=excluded.collection_status,
     collected_at=excluded.collected_at,latest_fiscal_year=excluded.latest_fiscal_year,latest_fiscal_period=excluded.latest_fiscal_period,
     latest_period_end=excluded.latest_period_end,latest_quarter_eps=excluded.latest_quarter_eps,
+    previous_quarter_eps=excluded.previous_quarter_eps,eps_qoq_pct=excluded.eps_qoq_pct,eps_qoq_status=excluded.eps_qoq_status,
     prior_year_quarter_eps=excluded.prior_year_quarter_eps,eps_yoy_pct=excluded.eps_yoy_pct,
     eps_yoy_status=excluded.eps_yoy_status,eps_change_amount=excluded.eps_change_amount,
     latest_quarter_revenue=excluded.latest_quarter_revenue,prior_year_quarter_revenue=excluded.prior_year_quarter_revenue,
@@ -98,7 +99,8 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     value.currentFyFiscalDate,value.currentFyEps,value.nextFyFiscalDate,value.nextFyEps,nextFyRevision1m,nextFyRevision3m,
     null,value.actualTrailingRevenue,value.operatingIncome,value.operatingMargin,
     value.freeCashFlow,value.fcfMargin,nextFyRevision1m,null,null,null,JSON.stringify(value.missingFields),value.collectionStatus,collectedAt,
-    value.latestFiscalYear,value.latestFiscalPeriod,value.latestPeriodEnd,value.latestQuarterEps,value.priorYearQuarterEps,
+    value.latestFiscalYear,value.latestFiscalPeriod,value.latestPeriodEnd,value.latestQuarterEps,
+    value.previousQuarterEps,value.epsQoqPct,value.epsQoqStatus,value.priorYearQuarterEps,
     value.epsYoyPct,value.epsYoyStatus,value.epsChangeAmount,value.latestQuarterRevenue,value.priorYearQuarterRevenue,
     value.revenueYoyPct,null,null,null,null,nextFyRevision3m
   ).run();
