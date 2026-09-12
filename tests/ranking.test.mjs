@@ -27,3 +27,15 @@ test("scores profit turnaround as a positive EPS signal",()=>{
   assert.equal(ranked[0].ticker,"TURN");
 });
 
+test("blends EPS score from 75% YoY and 25% QoQ",()=>{
+  const ranked=rankSnapshots([
+    {ticker:"A",eps_yoy_status:"profit_turnaround",eps_qoq_status:"loss_turnaround",revenue_yoy_pct:10},
+    {ticker:"B",eps_yoy_status:"growth",eps_yoy_pct:10,eps_qoq_status:"growth",eps_qoq_pct:10,revenue_yoy_pct:20},
+    {ticker:"C",eps_yoy_status:"growth",eps_yoy_pct:20,eps_qoq_status:"growth",eps_qoq_pct:20,revenue_yoy_pct:30},
+  ]);
+  const a=ranked.find(row=>row.ticker==="A");
+  assert.equal(a.component_scores.eps_yoy,100);
+  assert.equal(a.component_scores.eps_qoq,0);
+  assert.equal(a.component_scores.eps,75);
+});
+
