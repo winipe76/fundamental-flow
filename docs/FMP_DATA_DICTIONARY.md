@@ -160,6 +160,9 @@ CapEx Intensity = CAPEX / Revenue × 100
 | Income Statement, quarterly | `fiscalYear` | `latestFiscalYear` / `latest_fiscal_year` | string | Yes | Yes for Fiscal quality | Convert returned value to string | Fiscal year | Income Statement | Must exist; used with `period` for exact prior-year lookup | `2026` |
 | Income Statement, quarterly | `period` | `latestFiscalPeriod` / `latest_fiscal_period` | string | Yes | Yes for Fiscal quality | Direct mapping | Fiscal quarter | Income Statement | Must be a string; prior comparison must use the same period | `Q2` |
 | Income Statement, quarterly | `epsDiluted` | `latestQuarterEps` / `latest_quarter_eps` | number | Yes | No | Latest valid fiscal quarter | USD/share | Income Statement | Must convert to a finite number | `0.41` |
+| Income Statement, quarterly | `epsDiluted` | `previousQuarterEps` / `previous_quarter_eps` | number | Yes | No | Immediately preceding fiscal quarter | USD/share | Income Statement | Must convert to a finite number and precede the latest quarter | `0.35` |
+| Income Statement, quarterly | `epsDiluted` | `epsQoqPct` / `eps_qoq_pct` | number | Yes | No | `(current / previous quarter - 1) × 100` only when sign rules permit | % | Income Statement | Previous value cannot be near zero; sign transitions use status instead | `17.1429%` |
+| Income Statement, quarterly | `epsDiluted` | `epsQoqStatus` / `eps_qoq_status` | string | No | No | QoQ sign-transition classification | Enum | Income Statement | Same status rules as EPS YoY | `growth` |
 | Income Statement, quarterly | `epsDiluted` | `priorYearQuarterEps` / `prior_year_quarter_eps` | number | Yes | No | Same `period`, fiscal year minus one | USD/share | Income Statement | Must convert to finite number and match exact prior fiscal period | `0.13` |
 | Income Statement, quarterly | `epsDiluted` | `epsYoyPct` / `eps_yoy_pct` | number | Yes | No | `(current / previous - 1) × 100` only when sign rules permit | % | Income Statement | Prior value cannot be near zero; sign transitions use status instead | `215.3846%` |
 | Income Statement, quarterly | `epsDiluted` | `epsYoyStatus` / `eps_yoy_status` | string | No | No | `growth`, `profit_turnaround`, `loss_turnaround`, `loss_improving`, `loss_widening`, or `unavailable` | Enum | Income Statement | Determined by current/prior signs and near-zero rule | `growth` |
@@ -230,6 +233,9 @@ This compact table contains every FMP raw field consumed by production mapping. 
 | Income Statement | `fiscalYear` | `latestFiscalYear` | String normalization | Fiscal quality |
 | Income Statement | `period` | `latestFiscalPeriod` | Direct mapping | Fiscal quality |
 | Income Statement | `epsDiluted` | `latestQuarterEps` | Latest valid quarter | No |
+| Income Statement | `epsDiluted` | `previousQuarterEps` | Immediately preceding fiscal quarter | No |
+| Income Statement | `epsDiluted` | `epsQoqPct` | `(current / previous quarter - 1) × 100`, subject to sign rules | No |
+| Income Statement | `epsDiluted` | `epsQoqStatus` | QoQ sign-transition classification | No |
 | Income Statement | `epsDiluted` | `priorYearQuarterEps` | Exact prior fiscal year and same period | No |
 | Income Statement | `epsDiluted` | `epsYoyPct` | `(current / prior - 1) × 100`, subject to sign rules | No |
 | Income Statement | `epsDiluted` | `epsYoyStatus` | Sign-transition classification | No |
