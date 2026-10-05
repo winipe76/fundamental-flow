@@ -1,5 +1,25 @@
 # Fundamental Flow — FMP Data Dictionary
 
+## Forward Growth observation extension — 2026-09-26
+
+Implementation-tested with synthetic inputs; live FANG/NVDA/PLTR/MU/ALNY values are not verified for this extension.
+FY1 means the existing Current FY selected using latest reported fiscalYear; FY2 means the existing Next FY.
+Both metrics use the same annual estimate rows and do not change Fundamental Score, ranking, classification or Snapshot Quality.
+
+| Source / formula | Snapshot field | Unit |
+| --- | --- | --- |
+| FY1 annual `revenueAvg` | `current_fy_revenue` | Raw reported revenue |
+| FY2 annual `revenueAvg` | `next_fy_revenue` | Raw reported revenue |
+| `(FY2 revenueAvg / FY1 revenueAvg - 1) * 100` | `forward_revenue_growth_pct` | 20 means 20% |
+| `(FY2 epsAvg / FY1 epsAvg - 1) * 100` | `forward_eps_growth_pct` | 20 means 20% |
+
+All four additions are nullable. Missing, invalid, non-finite or ambiguous annual data produce null for the affected metric.
+A zero denominator produces null; negative growth is preserved. A negative EPS denominator uses the same formula,
+with neutral presentation and an explicit interpretation caution. Do not substitute absolute denominators or later fiscal years.
+Different explicitly reported currencies prevent growth calculation. Missing currency metadata is not treated as verification.
+Historical snapshots stay null until an appropriate original source is available; never fill historical periods using today's estimates.
+The additive migration is `drizzle/0010_forward_growth.sql`; apply it before running the updated collector.
+
 ## Document Control
 
 | Item | Value |
