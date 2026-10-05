@@ -1,4 +1,5 @@
 import { percentChange } from "./fundamental-math.ts";
+import { numberOrNull } from "./fmp-validation.ts";
 
 export type AnnualEstimateRow = Record<string, unknown>;
 export type RevisionSnapshot = { targetFiscalYear: string | null; fiscalDate: string | null; eps: number | null } | null;
@@ -17,6 +18,34 @@ function fiscalDateDriftDays(current: string | null, previous: string | null) {
   return Number.isFinite(currentTime) && Number.isFinite(previousTime)
     ? Math.abs(currentTime - previousTime) / 86_400_000
     : null;
+}
+
+/** Observation only: FY1 is the existing Current FY, FY2 is Next FY. */
+export function calculateForwardGrowth(items: AnnualEstimateRow[], currentFiscalYear: string | null) {
+  const selected = selectAnnualEstimatesByFiscalYear(items, currentFiscalYear);
+  // Reject ambiguous or malformed periods here without changing legacy EPS/revision selection.
+  const valid = (row: AnnualEstimateRow | null) => {
+    if (!row || typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return false;
+    const date = row.date;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date &&
+      items.filter(item => typeof item.date === "string" && item.date.slice(0, 4) === date.slice(0, 4)).length === 1;
+  };
+  const value = (row: AnnualEstimateRow | null, field: string) => valid(row) &&
+    (typeof row?.[field] === "number" || typeof row?.[field] === "string") ? numberOrNull(row?.[field]) : null;
+  const currentFyRevenue = value(selected.current, "revenueAvg");
+  const nextFyRevenue = value(selected.next, "revenueAvg");
+  const comparable = !(selected.current?.reportedCurrency && selected.next?.reportedCurrency &&
+    selected.current.reportedCurrency !== selected.next.reportedCurrency);
+  const growth = (current: number | null, next: number | null) => {
+    const result = comparable ? percentChange(next, current) : null;
+    return result !== null && Number.isFinite(result) ? result : null;
+  };
+  return {
+    currentFyRevenue, nextFyRevenue,
+    forwardRevenueGrowthPct: growth(currentFyRevenue, nextFyRevenue),
+    forwardEpsGrowthPct: growth(value(selected.current, "epsAvg"), value(selected.next, "epsAvg")),
+  };
 }
 
 export function selectAnnualEstimatesByFiscalYear(items: AnnualEstimateRow[], currentFiscalYear: string | null) {
