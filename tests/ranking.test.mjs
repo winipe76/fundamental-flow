@@ -39,3 +39,15 @@ test("blends EPS score from 75% YoY and 25% QoQ",()=>{
   assert.equal(a.component_scores.eps,75);
 });
 
+test("keeps a company ranked with a neutral provisional score when its required 1M comparison is missing",()=>{
+  const ranked=rankSnapshots([
+    {ticker:"A",eps_yoy_status:"growth",eps_yoy_pct:30,revenue_yoy_pct:30,next_fy_revision_1m:3},
+    {ticker:"B",eps_yoy_status:"growth",eps_yoy_pct:20,revenue_yoy_pct:20,next_fy_revision_1m:2},
+    {ticker:"MU",eps_yoy_status:"growth",eps_yoy_pct:10,revenue_yoy_pct:10,next_fy_revision_1m:null},
+  ]);
+  const mu=ranked.find(row=>row.ticker==="MU");
+  assert.ok(mu);
+  assert.equal(mu.component_scores.next_fy_1m,50);
+  assert.equal(mu.score_confidence,"provisional");
+});
+
