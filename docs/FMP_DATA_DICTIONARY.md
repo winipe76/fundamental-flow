@@ -288,8 +288,8 @@ This compact table contains every FMP raw field consumed by production mapping. 
 - Revenue and diluted-EPS YoY comparisons require identical `period` values and a fiscal year exactly one less than the latest fiscal year.
 - If no exact match exists, the prior value and YoY result are null. Revenue Growth then fails the required-field check.
 - Current FY is the latest quarterly Income Statement `fiscalYear`. Next FY is that fiscal year plus one; this handles companies such as NVDA whose fiscal-year label differs from the calendar year of most operating months.
-- Next FY revision comparisons require an identical `next_fy_estimate_fiscal_date`. A fiscal-year rollover starts a new comparison series; prior Current/Next FY series are never joined.
-- At rollover, 1M and 3M remain null until exact-month snapshots for the new Next FY date exist.
+- Next FY revision comparisons require the same logical target fiscal year (`latest_fiscal_year + 1`). The estimate date is a validation field and may drift by up to 31 days for 52/53-week fiscal calendars.
+- A true target fiscal-year rollover starts a new comparison series. Until a comparable snapshot exists, 1M and 3M remain null; ranking uses a neutral 50 component with provisional confidence instead of dropping the company.
 - The four Income Statement and Cash Flow rows must match by `fiscalYear`, `period`, and `date`; otherwise `validation_status = warning` with `fiscal_period_mismatch`.
 - Analyst Estimate is an annual series. The selected Primary row must be the exact Next FY identified from the latest reported fiscal year; an absent row makes Forward EPS null.
 
