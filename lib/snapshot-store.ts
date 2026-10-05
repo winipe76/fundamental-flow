@@ -79,8 +79,9 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     missing_fields,collection_status,collected_at,latest_fiscal_year,latest_fiscal_period,latest_period_end,
     latest_quarter_eps,previous_quarter_eps,eps_qoq_pct,eps_qoq_status,prior_year_quarter_eps,eps_yoy_pct,eps_yoy_status,eps_change_amount,
     latest_quarter_revenue,prior_year_quarter_revenue,revenue_yoy_pct,ntm_eps,ntm_components,
-    ntm_eps_change_1m_pct,ntm_eps_change_3m_pct,fy1_eps_change_3m_pct
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ntm_eps_change_1m_pct,ntm_eps_change_3m_pct,fy1_eps_change_3m_pct,
+    current_fy_revenue,next_fy_revenue,forward_revenue_growth_pct,forward_eps_growth_pct
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   ON CONFLICT(ticker,snapshot_date) DO UPDATE SET
     eps_definition=excluded.eps_definition,actual_trailing_revenue=excluded.actual_trailing_revenue,
     operating_income=excluded.operating_income,operating_margin=excluded.operating_margin,free_cash_flow=excluded.free_cash_flow,
@@ -97,7 +98,9 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     next_fy_estimate_fiscal_date=excluded.next_fy_estimate_fiscal_date,next_fy_eps=excluded.next_fy_eps,
     next_fy_revision_1m=excluded.next_fy_revision_1m,next_fy_revision_3m=excluded.next_fy_revision_3m,
     fy1_eps_change_3m_pct=excluded.fy1_eps_change_3m_pct,ntm_eps=NULL,ntm_components=NULL,
-    ntm_eps_change_1m_pct=NULL,ntm_eps_change_3m_pct=NULL`
+    ntm_eps_change_1m_pct=NULL,ntm_eps_change_3m_pct=NULL,
+    current_fy_revenue=excluded.current_fy_revenue,next_fy_revenue=excluded.next_fy_revenue,
+    forward_revenue_growth_pct=excluded.forward_revenue_growth_pct,forward_eps_growth_pct=excluded.forward_eps_growth_pct`
   ).bind(
     ticker,snapshotDate,value.nextFyFiscalDate,value.epsDefinition,value.nextFyEps,
     value.currentFyFiscalDate,value.currentFyEps,value.nextFyFiscalDate,value.nextFyEps,nextFyRevision1m,nextFyRevision3m,
@@ -106,7 +109,8 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
     value.latestFiscalYear,value.latestFiscalPeriod,value.latestPeriodEnd,value.latestQuarterEps,
     value.previousQuarterEps,value.epsQoqPct,value.epsQoqStatus,value.priorYearQuarterEps,
     value.epsYoyPct,value.epsYoyStatus,value.epsChangeAmount,value.latestQuarterRevenue,value.priorYearQuarterRevenue,
-    value.revenueYoyPct,null,null,null,null,nextFyRevision3m
+    value.revenueYoyPct,null,null,null,null,nextFyRevision3m,
+    value.currentFyRevenue,value.nextFyRevenue,value.forwardRevenueGrowthPct,value.forwardEpsGrowthPct
   ).run();
   const rawValues = [value.actualTrailingRevenue, value.revenueYoyPct, value.nextFyEps, value.operatingMargin, value.operatingCashFlow, value.capitalExpenditure];
   const calculationSuccess = rawValues.every((item): item is number => typeof item === "number" && Number.isFinite(item));
