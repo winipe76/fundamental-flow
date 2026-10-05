@@ -53,13 +53,16 @@ export function rankSnapshots(rows: RankingSnapshot[]) {
     const epsQoq = signalScore(row.eps_qoq_status, row.eps_qoq_pct, qoqValues);
     const eps = epsYoy === null ? epsQoq : epsQoq === null ? epsYoy : epsYoy * 0.75 + epsQoq * 0.25;
     const revenue = percentile(revenueValues, row.revenue_yoy_pct as number);
-    const oneMonth = finite(row.next_fy_revision_1m) ? percentile(oneMonthValues, row.next_fy_revision_1m) : null;
-    const threeMonth = finite(row.next_fy_revision_3m) ? percentile(threeMonthValues, row.next_fy_revision_3m) : null;
-    const requiredForwardAvailable = stage === "actual_only" || (oneMonth !== null && (stage !== "three_month" || threeMonth !== null));
-    const score = eps !== null && requiredForwardAvailable
+    const missingOneMonth = stage !== "actual_only" && !finite(row.next_fy_revision_1m);
+    const missingThreeMonth = stage === "three_month" && !finite(row.next_fy_revision_3m);
+    const oneMonth = finite(row.next_fy_revision_1m) ? percentile(oneMonthValues, row.next_fy_revision_1m) : stage === "actual_only" ? null : 50;
+    const threeMonth = finite(row.next_fy_revision_3m) ? percentile(threeMonthValues, row.next_fy_revision_3m) : stage === "three_month" ? 50 : null;
+    const score = eps !== null
       ? eps * weights.eps + revenue * weights.revenue + (oneMonth ?? 0) * weights.oneMonth + (threeMonth ?? 0) * weights.threeMonth
       : null;
-    return { ...row, score, component_scores: { eps, eps_yoy: epsYoy, eps_qoq: epsQoq, revenue, next_fy_1m: oneMonth, next_fy_3m: threeMonth } };
+    const scoreWarnings = [missingOneMonth ? "Next FY 1M comparison unavailable" : null, missingThreeMonth ? "Next FY 3M comparison unavailable" : null].filter(Boolean);
+    return { ...row, score, score_confidence: scoreWarnings.length ? "provisional" : "high", score_warnings: scoreWarnings,
+      component_scores: { eps, eps_yoy: epsYoy, eps_qoq: epsQoq, revenue, next_fy_1m: oneMonth, next_fy_3m: threeMonth } };
   }).filter((row) => row.score !== null)
     .sort((a, b) => (b.score as number) - (a.score as number))
     .map((row, index) => ({ ...row, rank: index + 1 }));
