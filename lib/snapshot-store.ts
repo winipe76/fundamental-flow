@@ -1,6 +1,6 @@
 import { collectTicker } from "@/lib/fmp";
 import { calculateDerived, type RawFundamentals } from "@/lib/fundamental-math";
-import { calculateNextFyRevisions } from "@/lib/forward-eps";
+import { calculateNextFyRevisions, nextFiscalYear } from "@/lib/forward-eps";
 import { classifySnapshot, type PreviousClassification, type ScreeningStage } from "@/lib/screening-engine";
 import { collectOfficialGuidance } from "@/lib/official-guidance";
 
@@ -47,22 +47,26 @@ export async function collectAndStoreTicker(db: D1Database, ticker: string, apiK
       guidance?`FMP /stable/earnings + ${guidance.source}`:"FMP /stable/earnings",event.sourceLastUpdated,collectedAt,
     ).run();
   }
-  const oneMonth = await db.prepare(`SELECT next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
+  const value = collected.normalized;
+  const oneMonth = await db.prepare(`SELECT latest_fiscal_year,next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
     WHERE ticker=? AND snapshot_date>=date(?,'start of month','-1 month')
       AND snapshot_date<date(?,'start of month') AND next_fy_eps IS NOT NULL
-      AND next_fy_estimate_fiscal_date=?
+      AND latest_fiscal_year=?
     ORDER BY snapshot_date DESC LIMIT 1`
-  ).bind(ticker, snapshotDate, snapshotDate, collected.normalized.nextFyFiscalDate).first<Record<string, unknown>>();
-  const threeMonths = await db.prepare(`SELECT next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
+  ).bind(ticker, snapshotDate, snapshotDate, value.latestFiscalYear).first<Record<string, unknown>>();
+  const threeMonths = await db.prepare(`SELECT latest_fiscal_year,next_fy_estimate_fiscal_date,next_fy_eps FROM fundamental_snapshots
     WHERE ticker=? AND snapshot_date>=date(?,'start of month','-3 months')
       AND snapshot_date<date(?,'start of month','-2 months') AND next_fy_eps IS NOT NULL
-      AND next_fy_estimate_fiscal_date=?
+      AND latest_fiscal_year=?
     ORDER BY snapshot_date DESC LIMIT 1`
-  ).bind(ticker, snapshotDate, snapshotDate, collected.normalized.nextFyFiscalDate).first<Record<string, unknown>>();
-  const value = collected.normalized;
-  const revisions = calculateNextFyRevisions(value.nextFyEps, value.nextFyFiscalDate,
-    oneMonth ? { fiscalDate: typeof oneMonth.next_fy_estimate_fiscal_date === "string" ? oneMonth.next_fy_estimate_fiscal_date : null, eps: dbNumber(oneMonth.next_fy_eps) } : null,
-    threeMonths ? { fiscalDate: typeof threeMonths.next_fy_estimate_fiscal_date === "string" ? threeMonths.next_fy_estimate_fiscal_date : null, eps: dbNumber(threeMonths.next_fy_eps) } : null);
+  ).bind(ticker, snapshotDate, snapshotDate, value.latestFiscalYear).first<Record<string, unknown>>();
+  const revisionSnapshot = (row: Record<string, unknown> | null) => row ? {
+    targetFiscalYear: nextFiscalYear(typeof row.latest_fiscal_year === "string" ? row.latest_fiscal_year : null),
+    fiscalDate: typeof row.next_fy_estimate_fiscal_date === "string" ? row.next_fy_estimate_fiscal_date : null,
+    eps: dbNumber(row.next_fy_eps),
+  } : null;
+  const revisions = calculateNextFyRevisions(value.nextFyEps, value.nextFyFiscalDate, nextFiscalYear(value.latestFiscalYear),
+    revisionSnapshot(oneMonth), revisionSnapshot(threeMonths));
   const nextFyRevision1m = revisions.oneMonth;
   const nextFyRevision3m = revisions.threeMonths;
 
