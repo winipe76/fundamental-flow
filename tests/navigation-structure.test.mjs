@@ -4,6 +4,7 @@ import test from "node:test";
 
 const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
 const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+const rankingsRoute=await readFile(new URL("../app/api/rankings/route.ts",import.meta.url),"utf8");
 test("includes all product screens without the removed Watchlist",()=>{for(const label of ["Fundamental Overview","Screener","Company Detail","Data Pilot"])assert.match(page,new RegExp(label));assert.doesNotMatch(page,/Watchlist/)});
 test("uses consistent actual growth and Next FY definitions",()=>{for(const label of ["최근 분기 EPS","최근 분기 Revenue","Next FY EPS","1개월 수정률","3개월 수정률"])assert.match(page,new RegExp(label))});
 test("keeps screening separate from Fundamental Overview",()=>{for(const label of ["NASDAQ 100 · FUNDAMENTAL SCREENING","SELECTED","Fundamental Score","Nasdaq 100 업데이트","현재 Screening 조건을 충족한 기업이 없습니다"])assert.match(page,new RegExp(label))});
@@ -15,4 +16,6 @@ test("does not infer management guidance when no official value exists",()=>{ass
 test("identifies actual EPS as GAAP diluted with an accessible tooltip",()=>{assert.match(page,/GAAP diluted/);assert.match(page,/function EpsDefinition/);assert.match(page,/tabIndex=\{0\}/);assert.match(css,/\.metric-help:hover/)});
 test("uses Nasdaq 100 metadata for overview and screener search",()=>{assert.match(page,/NASDAQ_100/);assert.match(page,/NASDAQ 100 UNIVERSE/);assert.match(page,/Valid Snapshots/);assert.match(page,/Nasdaq 100 전체 티커 또는 회사명 검색/)});
 test("routes screener rows and universe search results to the existing detail screen",()=>{assert.match(page,/Screener open=\{open\}/);assert.match(page,/RankingCandidateRow[\s\S]*open=\{open\}/);assert.match(page,/role=\"link\"[\s\S]*onClick=\{navigate\}/);assert.match(page,/searchResults\.map[\s\S]*onClick=\{\(\)=>open\(company\.ticker\)\}/);assert.match(page,/setView\(\"Company Detail\"\)/)});
+test("shows the existing Fundamental Score and rank in Company Detail",()=>{assert.match(page,/ranking=useRanking\(ticker\)/);assert.match(page,/Fundamental Score/);assert.match(page,/현재 순위/);assert.match(page,/Screening 선정 기업 기준/)});
+test("keeps the top-10 ranking response while allowing one ticker lookup",()=>{assert.match(rankingsRoute,/searchParams\.get\("ticker"\)/);assert.match(rankingsRoute,/ticker \? allRanked\.filter/);assert.match(rankingsRoute,/allRanked\.slice\(0, 10\)/)});
 
