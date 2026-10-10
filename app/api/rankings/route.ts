@@ -32,8 +32,10 @@ export async function GET(request: Request) {
     const eligible = (selected.length ? selected : latest.results)
       .map(row => ({ ...row, ...NASDAQ_100_BY_TICKER.get(String(row.ticker)), classification: stageByTicker.get(String(row.ticker)) }));
     const ticker = new URL(request.url).searchParams.get("ticker")?.toUpperCase();
-    const allRanked = rankSnapshots(eligible);
-    const ranked = ticker ? allRanked.filter(row => row.ticker === ticker) : allRanked.slice(0, 10);
+    const scored = rankSnapshots(eligible);
+    const scoredTickers = new Set(scored.map(row => row.ticker));
+    const allRanked = [...scored, ...eligible.filter(row => !scoredTickers.has(String(row.ticker))).map(row => ({ ...row, score: null, rank: null }))];
+    const ranked = ticker ? allRanked.filter(row => row.ticker === ticker) : allRanked;
     const lastUpdated = latest.results.reduce<string | null>((latestDate, row) => {
       const value = typeof row.collected_at === "string" ? row.collected_at : null;
       return value && (!latestDate || value > latestDate) ? value : latestDate;
