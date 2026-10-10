@@ -11,7 +11,7 @@ function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!runtime.DB) return json({ status: "database_unavailable", rankings: [], coverage: 0 }, 503);
   try {
     const placeholders = NASDAQ_100_TICKERS.map(() => "?").join(",");
@@ -28,10 +28,12 @@ export async function GET() {
     `).bind(...NASDAQ_100_TICKERS).all<{ ticker:string; stage:string }>();
     const stageByTicker = new Map(classifications.results.map(row => [row.ticker, row.stage]));
     const selectedStages = new Set(["newly_selected", "continuing_improvement"]);
-    const eligible = latest.results
-      .filter(row => selectedStages.has(stageByTicker.get(String(row.ticker)) ?? ""))
+    const selected = latest.results.filter(row => selectedStages.has(stageByTicker.get(String(row.ticker)) ?? ""));
+    const eligible = (selected.length ? selected : latest.results)
       .map(row => ({ ...row, ...NASDAQ_100_BY_TICKER.get(String(row.ticker)), classification: stageByTicker.get(String(row.ticker)) }));
-    const ranked = rankSnapshots(eligible).slice(0, 10);
+    const ticker = new URL(request.url).searchParams.get("ticker")?.toUpperCase();
+    const allRanked = rankSnapshots(eligible);
+    const ranked = ticker ? allRanked.filter(row => row.ticker === ticker) : allRanked.slice(0, 10);
     const lastUpdated = latest.results.reduce<string | null>((latestDate, row) => {
       const value = typeof row.collected_at === "string" ? row.collected_at : null;
       return value && (!latestDate || value > latestDate) ? value : latestDate;
